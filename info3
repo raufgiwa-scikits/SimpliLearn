@@ -17,3 +17,29 @@ Designed with practical application in mind, the GAMI-Tree algorithm is implemen
 
 Conclusion
 The GAMI-Tree algorithm represents a significant step forward in the development of interpretable machine learning models. By combining the robustness of GAMs with the flexibility and depth of tree-based models, GAMI-Tree offers a powerful tool for both predictive performance and model interpretability. Its unique method of handling interactions, iterative refinement, and efficiency in implementation position it as a preferable choice in scenarios demanding quick, clear, and effective decision-making support.
+References
+Breiman, L. (1996). Bagging predictors. Machine Learning, 24(2), 123-140.
+Friedman, J. H., & Popescu, B. E. (2008). Predictive learning via rule ensembles. Annals of Applied Statistics, 2(3), 916-954.
+Hu, L., Chen, J., Nair, V. N., & Mukherjee, A. (2022). Using Model-Based Trees with Boosting to Fit Low-Order Functional ANOVA Models. [Journal Name, Volume, Pages].
+Lou, Y., Caruana, R., Gehrke, J., & Hooker, G. (2013). Accurate intelligible models with pairwise interactions. Proceedings of the 19th ACM SIGKDD international conference on Knowledge discovery and data mining.
+
+
+
+GAMI-Tree and Explainable Boosting Machines (EBM) share similar goals in enhancing model interpretability while integrating interactions, but there are key differences in their approach and implementation:
+
+Base Learners:
+EBM utilizes gradient boosting with piecewise constant trees to fit Generalized Additive Models with Interactions (GAMI). This approach incrementally improves the model by adding trees that address the largest errors of the current ensemble.
+GAMI-Tree, on the other hand, employs model-based trees as its base learners. Model-based trees focus more on fitting a model within each tree node, which can better capture complex patterns and interactions compared to the simpler piecewise constant trees used in EBM.
+Interaction Handling:
+EBM fits interactions using a two-stage approach: first, the main effects are modeled, and then the interactions are added sequentially. This process can sometimes miss or inadequately model interactions that are complex or highly contextual within the data.
+GAMI-Tree incorporates a new interaction filtering method that is better at detecting and modeling underlying interactions. This method is designed to be more effective in capturing significant interactions that directly influence the predictive performance.
+Iterative Training and Convergence:
+EBM follows a typical boosting procedure where trees are added one at a time to reduce residual error, which can lead to a long training process especially as the model complexity increases.
+GAMI-Tree uses an iterative training method that converges more directly to a model with better predictive performance. The iterative refinement of both main effects and interactions helps ensure that each component of the model is optimally adjusted for the overall best performance.
+Purification of Interactions:
+EBM does not explicitly include a step for ensuring that the interactions are hierarchically orthogonal to the main effects. This can sometimes lead to interpretations where the effects of interactions are conflated with main effects.
+GAMI-Tree includes a "purification" step that ensures interactions are hierarchically orthogonal to main effects. This purification process guarantees that the interactions captured by the model do not redundantly include information that can be attributed to main effects, thus enhancing the interpretability of the model.
+Implementation Efficiency:
+EBM can require extensive hyperparameter tuning and may be computationally intensive, especially as the model complexity grows with the inclusion of more interactions.
+GAMI-Tree is designed to be fast and efficient with less need for extensive tuning, making it potentially more suitable for larger datasets or scenarios where model training speed is a priority.
+In summary, while both GAMI-Tree and EBM aim to provide interpretable models by integrating interactions, GAMI-Tree introduces advancements in base learning, interaction detection, and model refinement that differentiate it from EBM, particularly in terms of efficiency and the clarity of the interactions modeled.
