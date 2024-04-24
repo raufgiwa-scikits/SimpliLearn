@@ -1,3 +1,6 @@
+
+https://chat.openai.com/share/d4dca880-0825-4a41-9796-48386177090b
+
 The GAMI-Tree algorithm, a robust method for fitting inherently interpretable machine learning models, integrates the principles of Generalized Additive Models (GAMs) with interaction terms to facilitate clearer understanding and usability in predictive modeling. This technical explanation will detail the working of the GAMI-Tree algorithm, highlighting its unique aspects in the context of machine learning interpretability.
 
 Base Learning Using Model-Based Trees
