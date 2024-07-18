@@ -1,223 +1,11 @@
 import numpy as np
 
-def weighted_percentile_continuous(data, weights, percentile):
+def weighted_mean_continuous(data, weights):
     """
-    Calculate the weighted percentile of continuous data.
+    Calculate the weighted mean of continuous data.
     
     Parameters:
-    - data: List or numpy array of data points.
-    - weights: List or numpy array of weights corresponding to the data points.
-    - percentile: Desired percentile (between 0 and 100).
-    
-    Returns:
-    - Weighted percentile value.
-    """
-    
-    # Convert data and weights to numpy arrays if they are not already
-    data = np.array(data)
-    weights = np.array(weights)
-    
-    # Ensure the data and weights arrays have the same length
-    if len(data) != len(weights):
-        raise ValueError("The lengths of data and weights must be the same")
-    
-    # Sort data and weights by the data values
-    sorted_indices = np.argsort(data)
-    sorted_data = data[sorted_indices]
-    sorted_weights = weights[sorted_indices]
-    
-    # Calculate the cumulative sum of the weights
-    cumulative_weights = np.cumsum(sorted_weights)
-    
-    # Normalize cumulative weights to make them sum to 1
-    cumulative_weights /= cumulative_weights[-1]
-    
-    # Calculate the percentile threshold in terms of normalized cumulative weights
-    threshold = percentile / 100.0
-    
-    # Find the index where the cumulative weight exceeds the threshold
-    index = np.searchsorted(cumulative_weights, threshold, side='right')
-    
-    # Interpolate if necessary
-    if index == 0:
-        return sorted_data[0]
-    elif index == len(sorted_data):
-        return sorted_data[-1]
-    else:
-        # Linear interpolation
-        lower_data = sorted_data[index - 1]
-        upper_data = sorted_data[index]
-        lower_weight = cumulative_weights[index - 1]
-        upper_weight = cumulative_weights[index]
-        weight_range = upper_weight - lower_weight
-        proportion = (threshold - lower_weight) / weight_range
-        return lower_data + proportion * (upper_data - lower_data)
-
-# Example usage
-data = [1, 2, 3, 4, 5]
-weights = [0.1, 0.2, 0.3, 0.1, 0.3]
-percentile = 50
-
-weighted_percentile_value = weighted_percentile_continuous(data, weights, percentile)
-print(f"The {percentile}th weighted percentile is: {weighted_percentile_value}")
-
-import numpy as np
-
-def weighted_percentile_discrete(data, weights, percentile):
-    """
-    Calculate the weighted percentile of discrete data.
-    
-    Parameters:
-    - data: List or numpy array of data points.
-    - weights: List or numpy array of weights corresponding to the data points.
-    - percentile: Desired percentile (between 0 and 100).
-    
-    Returns:
-    - Weighted percentile value.
-    """
-    
-    # Convert data and weights to numpy arrays if they are not already
-    data = np.array(data)
-    weights = np.array(weights)
-    
-    # Ensure the data and weights arrays have the same length
-    if len(data) != len(weights):
-        raise ValueError("The lengths of data and weights must be the same")
-    
-    # Sort data and weights by the data values
-    sorted_indices = np.argsort(data)
-    sorted_data = data[sorted_indices]
-    sorted_weights = weights[sorted_indices]
-    
-    # Calculate the cumulative sum of the weights
-    cumulative_weights = np.cumsum(sorted_weights)
-    
-    # Calculate the percentile threshold in terms of weights
-    threshold = percentile / 100.0 * cumulative_weights[-1]
-    
-    # Find the index where the cumulative weight exceeds the threshold
-    index = np.searchsorted(cumulative_weights, threshold, side='right')
-    
-    # Return the corresponding data value, handling the case where index might be out of range
-    if index >= len(sorted_data):
-        return sorted_data[-1]
-    return sorted_data[index]
-
-# Example usage
-data = [1, 2, 3, 4, 5]
-weights = [0.1, 0.2, 0.3, 0.1, 0.3]
-percentile = 50
-
-weighted_percentile_value = weighted_percentile_discrete(data, weights, percentile)
-print(f"The {percentile}th weighted percentile is: {weighted_percentile_value}")
-
-
-import numpy as np
-
-def weighted_mode_continuous(data, weights, bins=10):
-    """
-    Calculate the weighted mode of continuous data.
-    
-    Parameters:
-    - data: List or numpy array of data points.
-    - weights: List or numpy array of weights corresponding to the data points.
-    - bins: Number of bins to use for discretizing the data.
-    
-    Returns:
-    - Weighted mode value.
-    """
-    
-    # Convert data and weights to numpy arrays if they are not already
-    data = np.array(data)
-    weights = np.array(weights)
-    
-    # Ensure the data and weights arrays have the same length
-    if len(data) != len(weights):
-        raise ValueError("The lengths of data and weights must be the same")
-    
-    # Create bins
-    min_data = np.min(data)
-    max_data = np.max(data)
-    bin_edges = np.linspace(min_data, max_data, bins + 1)
-    
-    # Digitize data points into bins
-    bin_indices = np.digitize(data, bin_edges) - 1
-    
-    # Calculate weighted sum for each bin
-    bin_weights = np.zeros(bins)
-    for i in range(bins):
-        bin_weights[i] = np.sum(weights[bin_indices == i])
-    
-    # Find the bin with the maximum weighted sum
-    mode_bin_index = np.argmax(bin_weights)
-    
-    # Calculate the weighted average within the mode bin for more precision
-    mode_bin_data = data[bin_indices == mode_bin_index]
-    mode_bin_weights = weights[bin_indices == mode_bin_index]
-    weighted_mode = np.average(mode_bin_data, weights=mode_bin_weights)
-    
-    return weighted_mode
-
-# Example usage
-data = [1, 2, 2, 2.5, 3, 3.5, 4, 4.5, 5]
-weights = [0.1, 0.5, 0.3, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1]
-bins = 5
-
-weighted_mode_value = weighted_mode_continuous(data, weights, bins)
-print(f"The weighted mode is: {weighted_mode_value}")
-
-import numpy as np
-
-def weighted_mode_discrete(data, weights):
-    """
-    Calculate the weighted mode of discrete data.
-    
-    Parameters:
-    - data: List or numpy array of discrete data points.
-    - weights: List or numpy array of weights corresponding to the data points.
-    
-    Returns:
-    - Weighted mode value.
-    """
-    
-    # Convert data and weights to numpy arrays if they are not already
-    data = np.array(data)
-    weights = np.array(weights)
-    
-    # Ensure the data and weights arrays have the same length
-    if len(data) != len(weights):
-        raise ValueError("The lengths of data and weights must be the same")
-    
-    # Create a dictionary to store the sum of weights for each unique value in data
-    weight_sums = {}
-    
-    for value, weight in zip(data, weights):
-        if value in weight_sums:
-            weight_sums[value] += weight
-        else:
-            weight_sums[value] = weight
-    
-    # Find the value with the maximum weight sum
-    weighted_mode = max(weight_sums, key=weight_sums.get)
-    
-    return weighted_mode
-
-# Example usage
-data = [1, 2, 2, 3, 3, 3, 4, 4, 5]
-weights = [0.1, 0.5, 0.3, 0.2, 0.2, 0.6, 0.1, 0.2, 0.1]
-
-weighted_mode_value = weighted_mode_discrete(data, weights)
-print(f"The weighted mode is: {weighted_mode_value}")
-
-
-import numpy as np
-
-def weighted_mean_discrete(data, weights):
-    """
-    Calculate the weighted mean of discrete data.
-    
-    Parameters:
-    - data: List or numpy array of discrete data points.
+    - data: List or numpy array of continuous data points.
     - weights: List or numpy array of weights corresponding to the data points.
     
     Returns:
@@ -238,29 +26,27 @@ def weighted_mean_discrete(data, weights):
     return weighted_mean
 
 # Example usage
-data = [1, 2, 3, 4, 5]
-weights = [0.1, 0.2, 0.3, 0.1, 0.3]
+data = [1.2, 2.3, 2.1, 2.5, 3.3, 3.5, 4.1, 4.3, 5.0]
+weights = [0.1, 0.5, 0.3, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1]
 
-weighted_mean_value = weighted_mean_discrete(data, weights)
+weighted_mean_value = weighted_mean_continuous(data, weights)
 print(f"The weighted mean is: {weighted_mean_value}")
-
-
-
-
 
 import numpy as np
 
-def weighted_mode_continuous(data, weights, bins=10):
+def weighted_mean(data, weights):
+    return np.sum(data * weights) / np.sum(weights)
+
+def weighted_std(data, weights):
     """
-    Calculate the weighted mode of continuous data.
+    Calculate the weighted standard deviation of continuous data.
     
     Parameters:
-    - data: List or numpy array of data points.
+    - data: List or numpy array of continuous data points.
     - weights: List or numpy array of weights corresponding to the data points.
-    - bins: Number of bins to use for discretizing the data.
     
     Returns:
-    - Weighted mode value.
+    - Weighted standard deviation value.
     """
     
     # Convert data and weights to numpy arrays if they are not already
@@ -271,36 +57,68 @@ def weighted_mode_continuous(data, weights, bins=10):
     if len(data) != len(weights):
         raise ValueError("The lengths of data and weights must be the same")
     
-    # Create bins
-    min_data = np.min(data)
-    max_data = np.max(data)
-    bin_edges = np.linspace(min_data, max_data, bins + 1)
+    # Calculate the weighted mean
+    weighted_mean_value = weighted_mean(data, weights)
     
-    # Digitize data points into bins
-    bin_indices = np.digitize(data, bin_edges) - 1
+    # Calculate the weighted sum of squared deviations from the weighted mean
+    weighted_variance = np.sum(weights * (data - weighted_mean_value) ** 2) / np.sum(weights)
     
-    # Calculate weighted sum for each bin
-    bin_weights = np.zeros(bins)
-    for i in range(bins):
-        bin_weights[i] = np.sum(weights[bin_indices == i])
+    # Calculate the weighted standard deviation
+    weighted_std_dev = np.sqrt(weighted_variance)
     
-    # Find the bin with the maximum weighted sum
-    mode_bin_index = np.argmax(bin_weights)
-    
-    # Calculate the weighted average within the mode bin for more precision
-    mode_bin_data = data[bin_indices == mode_bin_index]
-    mode_bin_weights = weights[bin_indices == mode_bin_index]
-    weighted_mode = np.average(mode_bin_data, weights=mode_bin_weights)
-    
-    return weighted_mode
+    return weighted_std_dev
 
 # Example usage
 data = [1.2, 2.3, 2.1, 2.5, 3.3, 3.5, 4.1, 4.3, 5.0]
 weights = [0.1, 0.5, 0.3, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1]
-bins = 5
 
-weighted_mode_value = weighted_mode_continuous(data, weights, bins)
-print(f"The weighted mode is: {weighted_mode_value}")
+weighted_std_dev_value = weighted_std(data, weights)
+print(f"The weighted standard deviation is: {weighted_std_dev_value}")
+
+
+
+import numpy as np
+
+def weighted_mean(data, weights):
+    return np.sum(data * weights) / np.sum(weights)
+
+def weighted_std(data, weights):
+    """
+    Calculate the weighted standard deviation of discrete data.
+    
+    Parameters:
+    - data: List or numpy array of discrete data points.
+    - weights: List or numpy array of weights corresponding to the data points.
+    
+    Returns:
+    - Weighted standard deviation value.
+    """
+    
+    # Convert data and weights to numpy arrays if they are not already
+    data = np.array(data)
+    weights = np.array(weights)
+    
+    # Ensure the data and weights arrays have the same length
+    if len(data) != len(weights):
+        raise ValueError("The lengths of data and weights must be the same")
+    
+    # Calculate the weighted mean
+    weighted_mean_value = weighted_mean(data, weights)
+    
+    # Calculate the weighted sum of squared deviations from the weighted mean
+    weighted_variance = np.sum(weights * (data - weighted_mean_value) ** 2) / np.sum(weights)
+    
+    # Calculate the weighted standard deviation
+    weighted_std_dev = np.sqrt(weighted_variance)
+    
+    return weighted_std_dev
+
+# Example usage
+data = [1, 2, 2, 3, 3, 3, 4, 4, 5]
+weights = [0.1, 0.5, 0.3, 0.2, 0.2, 0.6, 0.1, 0.2, 0.1]
+
+weighted_std_dev_value = weighted_std(data, weights)
+print(f"The weighted standard deviation is: {weighted_std_dev_value}")
 
 
 
