@@ -1,67 +1,216 @@
-import xgboost as xgb
-from sklearn.metrics import mean_squared_error
+import numpy as np
 
-class EarlyStoppingCallback:
-    def __init__(self, monitor_metric, stopping_rounds, tolerance=0.0, verbose=True):
-        self.monitor_metric = monitor_metric
-        self.stopping_rounds = stopping_rounds
-        self.tolerance = tolerance
-        self.verbose = verbose
-        self.best_score = None
-        self.best_iteration = None
-        self.wait = 0
-
-    def __call__(self, env):
-        current_score = env.evaluation_result_list[0][1]
-
-        if self.best_score is None or current_score < self.best_score - self.tolerance:
-            self.best_score = current_score
-            self.best_iteration = env.iteration
-            self.wait = 0
-        else:
-            self.wait += 1
-            if self.wait >= self.stopping_rounds:
-                if self.verbose:
-                    print(f"Stopping. Best iteration: {self.best_iteration}, best score: {self.best_score:.5f}")
-                raise EarlyStopException()
-
-class EarlyStopException(Exception):
-    pass
-
-def early_stop_callback(env):
-    try:
-        env.model.callback(env)
-    except EarlyStopException:
-        env.model.best_iteration = env.model.callback.best_iteration
-        env.model.best_score = env.model.callback.best_score
-        raise EarlyStopException()
+def weighted_percentile_continuous(data, weights, percentile):
+    """
+    Calculate the weighted percentile of continuous data.
+    
+    Parameters:
+    - data: List or numpy array of data points.
+    - weights: List or numpy array of weights corresponding to the data points.
+    - percentile: Desired percentile (between 0 and 100).
+    
+    Returns:
+    - Weighted percentile value.
+    """
+    
+    # Convert data and weights to numpy arrays if they are not already
+    data = np.array(data)
+    weights = np.array(weights)
+    
+    # Ensure the data and weights arrays have the same length
+    if len(data) != len(weights):
+        raise ValueError("The lengths of data and weights must be the same")
+    
+    # Sort data and weights by the data values
+    sorted_indices = np.argsort(data)
+    sorted_data = data[sorted_indices]
+    sorted_weights = weights[sorted_indices]
+    
+    # Calculate the cumulative sum of the weights
+    cumulative_weights = np.cumsum(sorted_weights)
+    
+    # Normalize cumulative weights to make them sum to 1
+    cumulative_weights /= cumulative_weights[-1]
+    
+    # Calculate the percentile threshold in terms of normalized cumulative weights
+    threshold = percentile / 100.0
+    
+    # Find the index where the cumulative weight exceeds the threshold
+    index = np.searchsorted(cumulative_weights, threshold, side='right')
+    
+    # Interpolate if necessary
+    if index == 0:
+        return sorted_data[0]
+    elif index == len(sorted_data):
+        return sorted_data[-1]
+    else:
+        # Linear interpolation
+        lower_data = sorted_data[index - 1]
+        upper_data = sorted_data[index]
+        lower_weight = cumulative_weights[index - 1]
+        upper_weight = cumulative_weights[index]
+        weight_range = upper_weight - lower_weight
+        proportion = (threshold - lower_weight) / weight_range
+        return lower_data + proportion * (upper_data - lower_data)
 
 # Example usage
-# Load data
-dtrain = xgb.DMatrix(data=X_train, label=y_train)
-dvalid = xgb.DMatrix(data=X_valid, label=y_valid)
+data = [1, 2, 3, 4, 5]
+weights = [0.1, 0.2, 0.3, 0.1, 0.3]
+percentile = 50
 
-# Define parameters
-params = {
-    'objective': 'reg:squarederror',
-    'eval_metric': 'rmse'
-}
+weighted_percentile_value = weighted_percentile_continuous(data, weights, percentile)
+print(f"The {percentile}th weighted percentile is: {weighted_percentile_value}")
 
-# Initialize early stopping callback
-early_stopping_callback = EarlyStoppingCallback(monitor_metric='rmse', stopping_rounds=10, tolerance=0.001)
+import numpy as np
 
-# Train the model with early stopping
-try:
-    model = xgb.train(
-        params=params,
-        dtrain=dtrain,
-        num_boost_round=1000,
-        evals=[(dvalid, 'validation')],
-        callbacks=[early_stop_callback],
-        obj=early_stopping_callback
-    )
-except EarlyStopException:
-    pass
+def weighted_percentile_discrete(data, weights, percentile):
+    """
+    Calculate the weighted percentile of discrete data.
+    
+    Parameters:
+    - data: List or numpy array of data points.
+    - weights: List or numpy array of weights corresponding to the data points.
+    - percentile: Desired percentile (between 0 and 100).
+    
+    Returns:
+    - Weighted percentile value.
+    """
+    
+    # Convert data and weights to numpy arrays if they are not already
+    data = np.array(data)
+    weights = np.array(weights)
+    
+    # Ensure the data and weights arrays have the same length
+    if len(data) != len(weights):
+        raise ValueError("The lengths of data and weights must be the same")
+    
+    # Sort data and weights by the data values
+    sorted_indices = np.argsort(data)
+    sorted_data = data[sorted_indices]
+    sorted_weights = weights[sorted_indices]
+    
+    # Calculate the cumulative sum of the weights
+    cumulative_weights = np.cumsum(sorted_weights)
+    
+    # Calculate the percentile threshold in terms of weights
+    threshold = percentile / 100.0 * cumulative_weights[-1]
+    
+    # Find the index where the cumulative weight exceeds the threshold
+    index = np.searchsorted(cumulative_weights, threshold, side='right')
+    
+    # Return the corresponding data value, handling the case where index might be out of range
+    if index >= len(sorted_data):
+        return sorted_data[-1]
+    return sorted_data[index]
 
-print(f"Best iteration: {model.best_iteration}")
-print(f"Best score: {model.best_score:.5f}")
+# Example usage
+data = [1, 2, 3, 4, 5]
+weights = [0.1, 0.2, 0.3, 0.1, 0.3]
+percentile = 50
+
+weighted_percentile_value = weighted_percentile_discrete(data, weights, percentile)
+print(f"The {percentile}th weighted percentile is: {weighted_percentile_value}")
+
+
+import numpy as np
+
+def weighted_mode_continuous(data, weights, bins=10):
+    """
+    Calculate the weighted mode of continuous data.
+    
+    Parameters:
+    - data: List or numpy array of data points.
+    - weights: List or numpy array of weights corresponding to the data points.
+    - bins: Number of bins to use for discretizing the data.
+    
+    Returns:
+    - Weighted mode value.
+    """
+    
+    # Convert data and weights to numpy arrays if they are not already
+    data = np.array(data)
+    weights = np.array(weights)
+    
+    # Ensure the data and weights arrays have the same length
+    if len(data) != len(weights):
+        raise ValueError("The lengths of data and weights must be the same")
+    
+    # Create bins
+    min_data = np.min(data)
+    max_data = np.max(data)
+    bin_edges = np.linspace(min_data, max_data, bins + 1)
+    
+    # Digitize data points into bins
+    bin_indices = np.digitize(data, bin_edges) - 1
+    
+    # Calculate weighted sum for each bin
+    bin_weights = np.zeros(bins)
+    for i in range(bins):
+        bin_weights[i] = np.sum(weights[bin_indices == i])
+    
+    # Find the bin with the maximum weighted sum
+    mode_bin_index = np.argmax(bin_weights)
+    
+    # Calculate the weighted average within the mode bin for more precision
+    mode_bin_data = data[bin_indices == mode_bin_index]
+    mode_bin_weights = weights[bin_indices == mode_bin_index]
+    weighted_mode = np.average(mode_bin_data, weights=mode_bin_weights)
+    
+    return weighted_mode
+
+# Example usage
+data = [1, 2, 2, 2.5, 3, 3.5, 4, 4.5, 5]
+weights = [0.1, 0.5, 0.3, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1]
+bins = 5
+
+weighted_mode_value = weighted_mode_continuous(data, weights, bins)
+print(f"The weighted mode is: {weighted_mode_value}")
+
+import numpy as np
+
+def weighted_mode_discrete(data, weights):
+    """
+    Calculate the weighted mode of discrete data.
+    
+    Parameters:
+    - data: List or numpy array of discrete data points.
+    - weights: List or numpy array of weights corresponding to the data points.
+    
+    Returns:
+    - Weighted mode value.
+    """
+    
+    # Convert data and weights to numpy arrays if they are not already
+    data = np.array(data)
+    weights = np.array(weights)
+    
+    # Ensure the data and weights arrays have the same length
+    if len(data) != len(weights):
+        raise ValueError("The lengths of data and weights must be the same")
+    
+    # Create a dictionary to store the sum of weights for each unique value in data
+    weight_sums = {}
+    
+    for value, weight in zip(data, weights):
+        if value in weight_sums:
+            weight_sums[value] += weight
+        else:
+            weight_sums[value] = weight
+    
+    # Find the value with the maximum weight sum
+    weighted_mode = max(weight_sums, key=weight_sums.get)
+    
+    return weighted_mode
+
+# Example usage
+data = [1, 2, 2, 3, 3, 3, 4, 4, 5]
+weights = [0.1, 0.5, 0.3, 0.2, 0.2, 0.6, 0.1, 0.2, 0.1]
+
+weighted_mode_value = weighted_mode_discrete(data, weights)
+print(f"The weighted mode is: {weighted_mode_value}")
+
+
+
+
+
+
