@@ -1,126 +1,43 @@
 import numpy as np
+from scipy.stats import mode
 
-def weighted_mean_continuous(data, weights):
-    """
-    Calculate the weighted mean of continuous data.
-    
-    Parameters:
-    - data: List or numpy array of continuous data points.
-    - weights: List or numpy array of weights corresponding to the data points.
-    
-    Returns:
-    - Weighted mean value.
-    """
-    
-    # Convert data and weights to numpy arrays if they are not already
-    data = np.array(data)
-    weights = np.array(weights)
-    
-    # Ensure the data and weights arrays have the same length
-    if len(data) != len(weights):
-        raise ValueError("The lengths of data and weights must be the same")
-    
-    # Calculate the weighted mean
-    weighted_mean = np.sum(data * weights) / np.sum(weights)
-    
-    return weighted_mean
+def w_percentile_cont(data, weights, percentiles):
+    idx = np.argsort(data)
+    cw = np.cumsum(np.array(weights)[idx])
+    return np.interp(np.array(percentiles) / 100 * cw[-1], cw - weights[idx] / 2, np.array(data)[idx]), cw[-1]
 
-# Example usage
-data = [1.2, 2.3, 2.1, 2.5, 3.3, 3.5, 4.1, 4.3, 5.0]
-weights = [0.1, 0.5, 0.3, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1]
+def w_mean_cont(data, weights):
+    return np.average(data, weights=weights), np.sum(weights)
 
-weighted_mean_value = weighted_mean_continuous(data, weights)
-print(f"The weighted mean is: {weighted_mean_value}")
+def w_mode_cont(data, weights):
+    return mode(data, axis=None, weights=weights)[0][0], np.sum(weights)
 
-import numpy as np
-
-def weighted_mean(data, weights):
-    return np.sum(data * weights) / np.sum(weights)
-
-def weighted_std(data, weights):
-    """
-    Calculate the weighted standard deviation of continuous data.
-    
-    Parameters:
-    - data: List or numpy array of continuous data points.
-    - weights: List or numpy array of weights corresponding to the data points.
-    
-    Returns:
-    - Weighted standard deviation value.
-    """
-    
-    # Convert data and weights to numpy arrays if they are not already
-    data = np.array(data)
-    weights = np.array(weights)
-    
-    # Ensure the data and weights arrays have the same length
-    if len(data) != len(weights):
-        raise ValueError("The lengths of data and weights must be the same")
-    
-    # Calculate the weighted mean
-    weighted_mean_value = weighted_mean(data, weights)
-    
-    # Calculate the weighted sum of squared deviations from the weighted mean
-    weighted_variance = np.sum(weights * (data - weighted_mean_value) ** 2) / np.sum(weights)
-    
-    # Calculate the weighted standard deviation
-    weighted_std_dev = np.sqrt(weighted_variance)
-    
-    return weighted_std_dev
-
-# Example usage
-data = [1.2, 2.3, 2.1, 2.5, 3.3, 3.5, 4.1, 4.3, 5.0]
-weights = [0.1, 0.5, 0.3, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1]
-
-weighted_std_dev_value = weighted_std(data, weights)
-print(f"The weighted standard deviation is: {weighted_std_dev_value}")
+# Example usage for continuous data:
+data = [1.2, 2.5, 3.7, 4.6, 5.0]
+weights = [10, 20, 10, 5, 5]
+percentiles = [25, 50, 75]
+print("Weighted Percentile (Cont):", w_percentile_cont(data, weights, percentiles))
+print("Weighted Mean (Cont):", w_mean_cont(data, weights))
+print("Weighted Mode (Cont):", w_mode_cont(data, weights))
 
 
+def w_percentile_disc(data, weights, percentiles):
+    idx = np.argsort(data)
+    cw = np.cumsum(np.array(weights)[idx])
+    return np.interp(np.array(percentiles) / 100 * cw[-1], cw - weights[idx] / 2, np.array(data)[idx]), cw[-1]
 
-import numpy as np
+def w_mean_disc(data, weights):
+    return np.average(data, weights=weights), np.sum(weights)
 
-def weighted_mean(data, weights):
-    return np.sum(data * weights) / np.sum(weights)
+def w_mode_disc(data, weights):
+    vals, counts = np.unique(data, return_counts=True)
+    max_index = np.argmax(counts)
+    return vals[max_index], np.sum(weights)
 
-def weighted_std(data, weights):
-    """
-    Calculate the weighted standard deviation of discrete data.
-    
-    Parameters:
-    - data: List or numpy array of discrete data points.
-    - weights: List or numpy array of weights corresponding to the data points.
-    
-    Returns:
-    - Weighted standard deviation value.
-    """
-    
-    # Convert data and weights to numpy arrays if they are not already
-    data = np.array(data)
-    weights = np.array(weights)
-    
-    # Ensure the data and weights arrays have the same length
-    if len(data) != len(weights):
-        raise ValueError("The lengths of data and weights must be the same")
-    
-    # Calculate the weighted mean
-    weighted_mean_value = weighted_mean(data, weights)
-    
-    # Calculate the weighted sum of squared deviations from the weighted mean
-    weighted_variance = np.sum(weights * (data - weighted_mean_value) ** 2) / np.sum(weights)
-    
-    # Calculate the weighted standard deviation
-    weighted_std_dev = np.sqrt(weighted_variance)
-    
-    return weighted_std_dev
-
-# Example usage
-data = [1, 2, 2, 3, 3, 3, 4, 4, 5]
-weights = [0.1, 0.5, 0.3, 0.2, 0.2, 0.6, 0.1, 0.2, 0.1]
-
-weighted_std_dev_value = weighted_std(data, weights)
-print(f"The weighted standard deviation is: {weighted_std_dev_value}")
-
-
-
-
-
+# Example usage for discrete data:
+data = [1, 2, 3, 4, 5]
+weights = [10, 20, 10, 5, 5]
+percentiles = [25, 50, 75]
+print("Weighted Percentile (Disc):", w_percentile_disc(data, weights, percentiles))
+print("Weighted Mean (Disc):", w_mean_disc(data, weights))
+print("Weighted Mode (Disc):", w_mode_disc(data, weights))
