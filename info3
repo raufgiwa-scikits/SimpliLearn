@@ -1,38 +1,31 @@
+import streamlit as st
 import pandas as pd
-import ipywidgets as widgets
-from IPython.display import display
 
-# Sample DataFrame
+# Sample initial DataFrame
 data = {'Name': ['Alice', 'Bob', 'Charlie'],
         'Age': [25, 30, 35],
         'City': ['New York', 'Los Angeles', 'Chicago']}
 df = pd.DataFrame(data)
 
-# Function to display the DataFrame and allow edits
-def display_dataframe():
-    print(df)
+# Streamlit app for displaying and modifying the DataFrame
+st.title('Interactive DataFrame Editor')
 
-# Function to add a row to the DataFrame
-def add_row(name, age, city):
-    global df
-    new_row = {'Name': name, 'Age': age, 'City': city}
-    df = df.append(new_row, ignore_index=True)
-    display_dataframe()
+# Display DataFrame with an option to edit rows
+st.write("Edit the DataFrame below:")
 
-# Text input widgets for new row data
-name_input = widgets.Text(value='', placeholder='Enter name', description='Name:')
-age_input = widgets.IntText(value=0, description='Age:')
-city_input = widgets.Text(value='', placeholder='Enter city', description='City:')
+# Editable grid
+edited_df = df.copy()
 
-# Button to add the row
-add_button = widgets.Button(description="Add Row")
+for index, row in edited_df.iterrows():
+    name = st.text_input(f"Name (Row {index})", row['Name'], key=f"name_{index}")
+    age = st.number_input(f"Age (Row {index})", min_value=0, max_value=100, value=row['Age'], key=f"age_{index}")
+    city = st.text_input(f"City (Row {index})", row['City'], key=f"city_{index}")
+    edited_df.loc[index] = [name, age, city]
 
-# Action for button click
-def on_button_click(b):
-    add_row(name_input.value, age_input.value, city_input.value)
+# Save button
+if st.button('Save Changes'):
+    st.write("Updated DataFrame:")
+    st.write(edited_df)
 
-add_button.on_click(on_button_click)
-
-# Display the widgets and initial DataFrame
-display(name_input, age_input, city_input, add_button)
-display_dataframe()
+st.write("Original DataFrame:")
+st.write(df)
