@@ -1,44 +1,38 @@
+import pandas as pd
+import ipywidgets as widgets
+from IPython.display import display
 
-It is my pleasure to provide my support for Wells Fargo Bank, N.A.’s (Wells Fargo’s) petition for a National Interest Waiver on behalf of Dr. Rauf Giwa. I am familiar with Dr. Giwa’s accomplishments as a Quantitative Analytics Specialist focusing on mathematical and computational modeling for financial quantitative analysis, and I can attest that these achievements are not only important to Wells Fargo, but are important to the U.S. national interest in mathematical and computational modeling for quantitative analysis, as well as the Financial Services Sector as a whole. 
+# Sample DataFrame
+data = {'Name': ['Alice', 'Bob', 'Charlie'],
+        'Age': [25, 30, 35],
+        'City': ['New York', 'Los Angeles', 'Chicago']}
+df = pd.DataFrame(data)
 
-I am a Quantitative Analytics Senior Manager in the Decision Science and Artificial Intelligence Department at Wells Fargo, which was established in 1852 and is a part of Wells Fargo & Company (NYSE: WFC). With $1.9 trillion in assets and a recent fiscal year net income of $13.2 billion, we rank among the top U.S. banks in assets and market value. Serving a third of U.S. households and over 10% of small businesses, we lead in middle market banking. We offer diverse financial products and services across Consumer Banking and Lending, Commercial Banking, Corporate and Investment Banking, and Wealth and Investment Management. My role involves validating and challenging machine learning models used for credit decisioning with various business lines and stakeholders.
+# Function to display the DataFrame and allow edits
+def display_dataframe():
+    print(df)
 
-The Data Science and Artificial Intelligence (DSAI) organization at Wells Fargo oversees the validation of models in areas such as financial crimes, fair lending, operational risk, marketing, fraud detection, natural language processing (NLP), and credit scoring. The team develops models to prevent money laundering and terrorism financing by analyzing transactions and user behavior. They ensure models adhere to anti-discrimination laws in fair lending and accurately assess creditworthiness. Operational risk models mitigate issues like system failures and fraud, while marketing models improve customer targeting and protect data privacy. Fraud detection models prevent fraudulent transactions, and NLP models enhance customer interactions with sentiment analysis and automated responses. For credit scoring, DSAI ensures accurate credit risk evaluations. This thorough validation ensures model robustness, reliability, and regulatory compliance, boosting the organization's decision-making and operational integrity.
+# Function to add a row to the DataFrame
+def add_row(name, age, city):
+    global df
+    new_row = {'Name': name, 'Age': age, 'City': city}
+    df = df.append(new_row, ignore_index=True)
+    display_dataframe()
 
-Dr. Giwa validates credit scoring machine learning models used for products like credit cards and mortgage loans across various business units at Wells Fargo. His role is critical in ensuring these models are conceptually sound, fit for their intended uses, and compliant with regulatory standards before they are deployed. This involves rigorous reviews and tests, including Perturbation Analysis to evaluate model stability with slight data alterations, Stress Testing under extreme conditions, and Scenario Testing for real-world applicability. Cross-Validation is employed to ensure models perform well across different data sets, and models are also benchmarked to assess their resilience and effectiveness. Dr. Giwa's contributions extend to enhancing internal processes by developing benchmark models and tools that improve the efficiency and innovation of model validation, reinforcing the reliability and risk management of machine learning solutions before they go into production.
+# Text input widgets for new row data
+name_input = widgets.Text(value='', placeholder='Enter name', description='Name:')
+age_input = widgets.IntText(value=0, description='Age:')
+city_input = widgets.Text(value='', placeholder='Enter city', description='City:')
 
-Dr. Giwa significantly strengthens Wells Fargo’s Model Risk Management with his deep expertise in quantitative analytics, physics, and data science, ensuring the integrity and compliance of the bank’s model inventory. His skills in Python, R, SAS, C++, SQL, and advanced machine learning enable him to deliver impactful insights and solutions, enhancing risk management processes. Dr. Giwa’s ability to effectively assess model performance and ensure adherence to regulatory standards is bolstered by his proficiency with large data sets and his knowledge of both traditional statistics and machine learning. His clear communication aids collaboration with colleagues, auditors, and regulators, facilitating successful project execution. Capable of managing multiple projects and adapting quickly to changes, Dr. Giwa’s contributions not only fortify financial systems against threats but also uphold the stability of the financial markets, safeguard American assets, and help prevent financial crises.
+# Button to add the row
+add_button = widgets.Button(description="Add Row")
 
-Because Wells Fargo is one of the world’s most systematically important banks, Dr. Giwa’s work within Wells Fargo will continue to be vital for U.S. national interest in quantitative analysis using mathematical and computational modeling, as well as the Financial Services Sector as a whole. Dr. Giwa provides meaningful contributions and furthers the U.S. national interest in the ever growing and changing field of financial quantitative analysis. Based on my personal knowledge of Dr. Giwa’s career, I can confirm without doubt that Dr. Giwa’s contributions in this field are immensely important to the United States and Dr. G Giwa is well-positioned to advance the proposed endeavor.
+# Action for button click
+def on_button_click(b):
+    add_row(name_input.value, age_input.value, city_input.value)
 
+add_button.on_click(on_button_click)
 
-
-
-
-
-
-
-
-
-
-
-
-
-By way of introduction, I am a Quantitative Analytics Senior Manager in the Decision Science and Artificial Intelligence Department at Wells Fargo. Founded in 1852, Wells Fargo is a wholly owned subsidiary of Wells Fargo & Company (NYSE: WFC), a diversified, community-based financial services company with $1.9 trillion in assets. In our most recent fiscal year, we generated $13.2 billion of net income and ranked fourth in assets and third in the market value of our common stock among all U.S. banks on December 31, 2022. Wells Fargo serves one in three U.S. households and more than 10% of small businesses in the U.S., and is the leading middle market banking provider in the U.S. We provide a diversified set of banking, investment and mortgage products and services, as well as consumer and commercial finance, through our four reportable operating segments: Consumer Banking and Lending, Commercial Banking, Corporate and Investment Banking, and Wealth and Investment Management. My team works with various lines of Business and stakeholders by validating and challenging ML models for Credit decisioning of prospective and existing customers. 
-
-The Data Science and Artificial Intelligence (DSAI) organization is responsible for the comprehensive validation of models across several critical areas, including financial crimes, fair lending, operational risk, marketing, fraud detection, natural language processing (NLP), and credit scoring. For financial crimes, DSAI develops and validates models that detect and prevent activities such as money laundering and terrorism financing by analyzing transaction patterns and user behavior. In fair lending, the department ensures models are compliant with anti-discrimination laws, assessing creditworthiness without bias. For operational risk, DSAI validates models that predict and mitigate potential disruptions, including system failures and fraud. In marketing, models are validated to enhance customer targeting and campaign personalization, ensuring data privacy and maximizing marketing efficiency. Fraud detection models are scrutinized to identify and prevent fraudulent transactions across various platforms. In NLP, DSAI validates models that facilitate customer interaction through sentiment analysis and automated responses, enhancing user experience and service quality. Lastly, for credit scoring, the department ensures models accurately assess credit risk, aiding in fair lending decisions. This rigorous validation process ensures that all models are robust, reliable, and compliant with regulatory standards, enhancing the organization's decision-making and operational integrity. 
-
-Dr. Giwa's model validation role includes reviewing and validating credit scoring machine learning models developed by analysts across different business units. Such models are used to drive dependent business products such as credit cards, mortgage loans, small business lending, etc. These reviews are rigorous and critical internal procedures which are performed to mitigate various potential risk before a dependent product goes into production.  Dr. Giwa's ensures these models are conceptually robust, appropriate for their specific purposes, comply with regulatory standards, and pass various machine learning tests. Among these tests are Perturbation Analysis, which slightly modifies input data to assess the model's response to change; Stress Testing, to evaluate performance under extreme data conditions; and Scenario Testing, to ensure consistency in various real-world contexts. Cross-Validation is also used to promote model generalization across diverse datasets by training and testing on different subsets of data. Additionally, models are benchmarked against alternatives to verify their resilience and efficacy. This thorough testing regimen bolsters confidence in model-driven decision-making, guarantees performance reliability across scenarios, and reduces risks prior to deployment, making it essential for creating reliable machine learning solutions. Dr. Giwa has also enhanced our internal workflows by advancing our model testing methods. His development work includes creating challenge models that set benchmarks for existing machine learning models, as well as developing tools that increase the efficiency of model validation and innovative machine learning techniques.
-
-Dr. Giwa, with his extensive background in quantitative analytics, physics, and data science, significantly enhances Wells Fargo’s Model Risk (Model Risk Management) by ensuring the integrity of the bank's model inventory. His expertise in developing, implementing, and validating analytical models is instrumental in performing highly complex activities related to financial products, business analysis, and modeling. Utilizing his proficiency in Python, R, SAS, C++, SQL, and advanced machine learning methodologies, he delivers insights and solutions to business needs, thereby improving risk management processes. Dr. Giwa's familiarity with traditional statistical applications and machine learning, along with his adeptness in handling large data files, supports effective model performance assessments and ensures compliance with governance policies and regulations. His clear and concise communication skills facilitate collaboration with peers, managers, auditors, and regulators, ensuring seamless interactions and successful project outcomes. His ability to manage multiple projects and adapt to rapid changes in analytical focus underscores his value to Wells Fargo. Through his contributions, Dr. Giwa not only enhances the resilience of financial systems against emerging threats but also bolsters the economic well-being of the United States by maintaining the integrity and stability of financial markets, protecting the assets of American citizens, and preventing financial crises.
-
-Because Wells Fargo is one of the world’s most systematically important banks, Dr. Giwa’s work within Wells Fargo will continue to be vital for U.S. national interest in quantitative analysis using mathematical and computational modeling, as well as the Financial Services Sector as a whole. Dr. Giwa provides meaningful contributions and furthers the U.S. national interest in the ever growing and changing field of financial quantitative analysis. Based on my personal knowledge of Dr. Giwa’s career, I can confirm without doubt that Dr. Giwa’s contributions in this field are immensely important to the United States and Dr. G Giwa is well-positioned to advance the proposed endeavor.
-
-
-
-Sincerely,
-Dr. Jie Chen
-Manager, Decision Science and Artificial Intelligence 
-Wells Fargo Bank, N.A.
-
-
+# Display the widgets and initial DataFrame
+display(name_input, age_input, city_input, add_button)
+display_dataframe()
