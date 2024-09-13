@@ -1,31 +1,49 @@
-import streamlit as st
 import pandas as pd
+import ipywidgets as widgets
+from IPython.display import display
 
-# Sample initial DataFrame
+# Sample DataFrame
 data = {'Name': ['Alice', 'Bob', 'Charlie'],
         'Age': [25, 30, 35],
         'City': ['New York', 'Los Angeles', 'Chicago']}
 df = pd.DataFrame(data)
 
-# Streamlit app for displaying and modifying the DataFrame
-st.title('Interactive DataFrame Editor')
+# Function to display and allow interactive editing of a DataFrame row
+def edit_row(row_index):
+    # Create widgets for each column in the row
+    name_widget = widgets.Text(value=df.at[row_index, 'Name'], description='Name:')
+    age_widget = widgets.IntText(value=df.at[row_index, 'Age'], description='Age:')
+    city_widget = widgets.Text(value=df.at[row_index, 'City'], description='City:')
+    
+    # Display widgets to edit the row
+    display(name_widget, age_widget, city_widget)
+    
+    # Function to save changes back to the DataFrame
+    def save_changes(b):
+        df.at[row_index, 'Name'] = name_widget.value
+        df.at[row_index, 'Age'] = age_widget.value
+        df.at[row_index, 'City'] = city_widget.value
+        print(f"Row {row_index} updated.")
+        display(df)
+    
+    # Save button
+    save_button = widgets.Button(description="Save")
+    save_button.on_click(save_changes)
+    display(save_button)
 
-# Display DataFrame with an option to edit rows
-st.write("Edit the DataFrame below:")
+# Dropdown to select a row to edit
+row_dropdown = widgets.Dropdown(options=list(df.index), description="Select Row:")
+edit_button = widgets.Button(description="Edit")
 
-# Editable grid
-edited_df = df.copy()
+# Display selected row for editing
+def on_edit_button_click(b):
+    edit_row(row_dropdown.value)
 
-for index, row in edited_df.iterrows():
-    name = st.text_input(f"Name (Row {index})", row['Name'], key=f"name_{index}")
-    age = st.number_input(f"Age (Row {index})", min_value=0, max_value=100, value=row['Age'], key=f"age_{index}")
-    city = st.text_input(f"City (Row {index})", row['City'], key=f"city_{index}")
-    edited_df.loc[index] = [name, age, city]
+edit_button.on_click(on_edit_button_click)
 
-# Save button
-if st.button('Save Changes'):
-    st.write("Updated DataFrame:")
-    st.write(edited_df)
+# Display dropdown and edit button
+display(row_dropdown, edit_button)
 
-st.write("Original DataFrame:")
-st.write(df)
+# Display initial DataFrame
+print("Initial DataFrame:")
+display(df)
