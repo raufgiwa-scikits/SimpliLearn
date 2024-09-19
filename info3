@@ -1,78 +1,139 @@
 import pandas as pd
 from IPython.display import display, HTML
-import os
 
-# Define the path to your CSV file
-CSV_FILE = 'data.csv'
+# Sample DataFrame
+df = pd.DataFrame({
+    'Column1': ['A1', 'A2', 'A3'],
+    'Column2': ['B1', 'B2', 'B3'],
+    'Column3': ['C1', 'C2', 'C3']
+})
 
-# Function to load data from the CSV file
-def load_data():
-    if os.path.exists(CSV_FILE):
-        return pd.read_csv(CSV_FILE)
-    else:
-        return pd.DataFrame(columns=['Column1', 'Column2', 'Column3'])
-
-# Function to save data back to the CSV file
-def save_data(df):
-    df.to_csv(CSV_FILE, index=False)
-
-# Function to display an editable HTML table
-def display_editable_table(df):
-    html = '<form method="POST">'
-    html += '<table border="1">'
-    
-    # Create header
-    html += '<tr>'
-    for col in df.columns:
-        html += f'<th>{col}</th>'
-    html += '</tr>'
-    
-    # Create editable rows
+# Function to display the table with edit, save, and cancel buttons per row
+def display_table(df):
+    html = """
+    <style>
+        table { border-collapse: collapse; width: 100%; }
+        table, th, td { border: 1px solid black; }
+        th, td { padding: 8px; text-align: left; }
+        td { position: relative; }
+        .cell-label { display: block; }
+        .cell-input { display: none; width: 100%; }
+        td.editing .cell-label { display: none; }
+        td.editing .cell-input { display: inline-block; }
+    </style>
+    <table>
+        <thead>
+            <tr>""" + "".join([f"<th>{col}</th>" for col in df.columns]) + "<th>Actions</th></tr>" + """</thead>
+        <tbody>
+    """
+    # Build table rows with labels and hidden inputs for each cell, and edit, save, cancel buttons
     for i, row in df.iterrows():
-        html += '<tr>'
-        for col in df.columns:
-            html += f'<td><input type="text" name="{col}_{i}" value="{row[col]}"></td>'
-        html += '</tr>'
+        html += f"<tr id='row_{i}'>"
+        for j, col in enumerate(df.columns):
+            cell_id = f"cell_{i}_{j}"
+            value = row[col]
+            html += f"""
+                <td ondblclick="editRow('{i}')">
+                    <span class="cell-label" id="label_{cell_id}">{value}</span>
+                    <input type="text" class="cell-input" id="input_{cell_id}" value="{value}">
+                </td>
+            """
+        # Edit, Save, Cancel buttons for each row
+        html += f"""
+            <td>
+                <button onclick="editRow('{i}')" id="edit_button_{i}">Edit</button>
+                <button onclick="saveRow('{i}')" id="save_button_{i}" style="display:none;">Save</button>
+                <button onclick="cancelRow('{i}')" id="cancel_button_{i}" style="display:none;">Cancel</button>
+            </td>
+        """
+        html += "</tr>"
     
-    html += '</table>'
-    html += '<button type="submit">Save Changes</button>'
-    html += '</form>'
+    html += """
+        </tbody>
+    </table>
+    <br>
+    <button onclick="commitChanges()">Commit All Changes</button>
+    
+    <script>
+        // Function to enable editing on the specific row
+        function editRow(row_id) {
+            var row = document.getElementById('row_' + row_id);
+            row.querySelectorAll('td').forEach(function(cell) {
+                cell.classList.add('editing');
+            });
+            document.getElementById('edit_button_' + row_id).style.display = 'none';
+            document.getElementById('save_button_' + row_id).style.display = 'inline';
+            document.getElementById('cancel_button_' + row_id).style.display = 'inline';
+        }
+        
+        // Function to save changes made to a row
+        function saveRow(row_id) {
+            var row = document.getElementById('row_' + row_id);
+            row.querySelectorAll('td').forEach(function(cell) {
+                var input = cell.querySelector('.cell-input');
+                if (input) {
+                    var label = cell.querySelector('.cell-label');
+                    label.textContent = input.value;
+                    cell.classList.remove('editing');
+                }
+            });
+            document.getElementById('edit_button_' + row_id).style.display = 'inline';
+            document.getElementById('save_button_' + row_id).style.display = 'none';
+            document.getElementById('cancel_button_' + row_id).style.display = 'none';
+        }
+        
+        // Function to cancel editing on a row and revert to the original values
+        function cancelRow(row_id) {
+            var row = document.getElementById('row_' + row_id);
+            row.querySelectorAll('td').forEach(function(cell) {
+                var input = cell.querySelector('.cell-input');
+                if (input) {
+                    var label = cell.querySelector('.cell-label');
+                    input.value = label.textContent; // revert to original value
+                    cell.classList.remove('editing');
+                }
+            });
+            document.getElementById('edit_button_' + row_id).style.display = 'inline';
+            document.getElementById('save_button_' + row_id).style.display = 'none';
+            document.getElementById('cancel_button_' + row_id).style.display = 'none';
+        }
+        
+        // Function to gather the table data and send it to Python to update the DataFrame
+        function commitChanges() {
+            var tableData = {};
+            var rows = document.querySelectorAll('tbody tr');
+            rows.forEach(function(row, rowIndex) {
+                row.querySelectorAll('td').forEach(function(cell, colIndex) {
+                    var input = cell.querySelector('.cell-input');
+                    if (input) {
+                        tableData['cell_' + rowIndex + '_' + colIndex] = input.value;
+                    }
+                });
+            });
+            
+            // Send the data back to the kernel for processing
+            var command = "handle_commit(" + JSON.stringify(tableData) + ")";
+            var kernel = Jupyter.notebook.kernel;
+            kernel.execute(command);
+        }
+    </script>
+    """
     
     display(HTML(html))
 
-# Function to update the DataFrame from form input
-def update_data_from_form(df, form_data):
-    for i in range(len(df)):
-        for col in df.columns:
-            form_key = f'{col}_{i}'
-            if form_key in form_data:
-                df.at[i, col] = form_data[form_key]
+# Function to update the DataFrame from the submitted table data
+def handle_commit(table_data):
+    global df  # Reference the global DataFrame
+    
+    for cell, value in table_data.items():
+        parts = cell.split('_')
+        row_idx = int(parts[1])
+        col_idx = int(parts[2])
+        col_name = df.columns[col_idx]
+        df.at[row_idx, col_name] = value
+    
+    print("DataFrame updated successfully!")
+    display(df)  # Show updated DataFrame
 
-# Load initial data from CSV
-df = load_data()
-
-# Display the editable table
-display_editable_table(df)
-
-# Function to simulate form submission (since Jupyter doesn't support native form POST handling)
-def handle_form_submission(form_data):
-    # Update data based on the form submission
-    update_data_from_form(df, form_data)
-    # Save the updated data back to CSV
-    save_data(df)
-    # Display the updated table
-    display_editable_table(df)
-    print("CSV file updated successfully!")
-
-# Simulate form data submission (replace this with actual form inputs in a real app)
-mock_form_data = {
-    'Column1_0': 'A1_Updated',
-    'Column2_0': 'B1_Updated',
-    'Column3_0': 'C1_Updated',
-    'Column1_1': 'A2_Updated',
-    'Column2_1': 'B2_Updated',
-    'Column3_1': 'C2_Updated',
-}
-
-# Call this function to simulate form submission and update CSV
-handle_form_submission(mock_form_data)
+# Load the initial table
+display_table(df)
