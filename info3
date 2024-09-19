@@ -1,1 +1,151 @@
-https://chatgpt.com/share/66ec740f-5484-8009-ba4e-daa359c49fa9
+import pandas as pd
+from IPython.display import display, HTML, Javascript
+import os
+
+# Define the path to your CSV file
+CSV_FILE = 'data.csv'
+
+# Function to load data from the CSV file
+def load_data():
+    if os.path.exists(CSV_FILE):
+        return pd.read_csv(CSV_FILE)
+    else:
+        # Create an empty dataframe if the file doesn't exist
+        return pd.DataFrame(columns=['Column1', 'Column2', 'Column3'])
+
+# Function to save data back to the CSV file
+def save_data(df):
+    df.to_csv(CSV_FILE, index=False)
+
+# Function to display the table with edit, save, and cancel buttons per row
+def display_table(df):
+    html = """
+    <style>
+        table { border-collapse: collapse; width: 100%; }
+        table, th, td { border: 1px solid black; }
+        th, td { padding: 8px; text-align: left; }
+        td { position: relative; }
+        .cell-label { display: block; }
+        .cell-input { display: none; width: 100%; }
+        td.editing .cell-label { display: none; }
+        td.editing .cell-input { display: inline-block; }
+    </style>
+    <table>
+        <thead>
+            <tr>""" + "".join([f"<th>{col}</th>" for col in df.columns]) + "<th>Actions</th></tr>" + """</thead>
+        <tbody>
+    """
+    # Build table rows with labels and hidden inputs for each cell, and edit, save, cancel buttons
+    for i, row in df.iterrows():
+        html += f"<tr id='row_{i}'>"
+        for j, col in enumerate(df.columns):
+            cell_id = f"cell_{i}_{j}"
+            value = row[col]
+            html += f"""
+                <td ondblclick="editRow('{i}')">
+                    <span class="cell-label" id="label_{cell_id}">{value}</span>
+                    <input type="text" class="cell-input" id="input_{cell_id}" value="{value}">
+                </td>
+            """
+        # Edit, Save, Cancel buttons for each row
+        html += f"""
+            <td>
+                <button onclick="editRow('{i}')" id="edit_button_{i}">Edit</button>
+                <button onclick="saveRow('{i}')" id="save_button_{i}" style="display:none;">Save</button>
+                <button onclick="cancelRow('{i}')" id="cancel_button_{i}" style="display:none;">Cancel</button>
+            </td>
+        """
+        html += "</tr>"
+    
+    html += """
+        </tbody>
+    </table>
+    <br>
+    <button onclick="commitChanges()">Commit</button>
+    
+    <script>
+        // Function to enable editing on the specific row
+        function editRow(row_id) {
+            var row = document.getElementById('row_' + row_id);
+            row.querySelectorAll('td').forEach(function(cell) {
+                cell.classList.add('editing');
+            });
+            document.getElementById('edit_button_' + row_id).style.display = 'none';
+            document.getElementById('save_button_' + row_id).style.display = 'inline';
+            document.getElementById('cancel_button_' + row_id).style.display = 'inline';
+        }
+        
+        // Function to save changes made to a row
+        function saveRow(row_id) {
+            var row = document.getElementById('row_' + row_id);
+            row.querySelectorAll('td').forEach(function(cell) {
+                var input = cell.querySelector('.cell-input');
+                if (input) {
+                    var label = cell.querySelector('.cell-label');
+                    label.textContent = input.value;
+                    cell.classList.remove('editing');
+                }
+            });
+            document.getElementById('edit_button_' + row_id).style.display = 'inline';
+            document.getElementById('save_button_' + row_id).style.display = 'none';
+            document.getElementById('cancel_button_' + row_id).style.display = 'none';
+        }
+        
+        // Function to cancel editing on a row and revert to the original values
+        function cancelRow(row_id) {
+            var row = document.getElementById('row_' + row_id);
+            row.querySelectorAll('td').forEach(function(cell) {
+                var input = cell.querySelector('.cell-input');
+                if (input) {
+                    var label = cell.querySelector('.cell-label');
+                    input.value = label.textContent; // revert to original value
+                    cell.classList.remove('editing');
+                }
+            });
+            document.getElementById('edit_button_' + row_id).style.display = 'inline';
+            document.getElementById('save_button_' + row_id).style.display = 'none';
+            document.getElementById('cancel_button_' + row_id).style.display = 'none';
+        }
+        
+        // Function to gather the table data and send it to Python to update the DataFrame
+        function commitChanges() {
+            var tableData = {};
+            var rows = document.querySelectorAll('tbody tr');
+            rows.forEach(function(row, rowIndex) {
+                row.querySelectorAll('td').forEach(function(cell, colIndex) {
+                    var input = cell.querySelector('.cell-input');
+                    if (input) {
+                        tableData['cell_' + rowIndex + '_' + colIndex] = input.value;
+                    }
+                });
+            });
+            
+            // Send the data back to the kernel for processing
+            var command = "handle_commit(" + JSON.stringify(tableData) + ")";
+            var kernel = Jupyter.notebook.kernel;
+            kernel.execute(command);
+        }
+    </script>
+    """
+    
+    display(HTML(html))
+
+# Function to update the DataFrame from the submitted table data
+def handle_commit(table_data):
+    global df  # Reference the global DataFrame
+    
+    for cell, value in table_data.items():
+        parts = cell.split('_')
+        row_idx = int(parts[1])
+        col_idx = int(parts[2])
+        col_name = df.columns[col_idx]
+        df.at[row_idx, col_name] = value
+    
+    # Save the updated dataframe back to CSV
+    save_data(df)
+    print("CSV file updated successfully!")
+    display_table(df)  # Refresh the table
+
+# Load the initial data from the CSV file
+df = load_data()
+display_table(df)
