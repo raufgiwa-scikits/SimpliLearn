@@ -1,49 +1,78 @@
 import pandas as pd
-import ipywidgets as widgets
-from IPython.display import display
+from IPython.display import display, HTML
+import os
 
-# Sample DataFrame
-data = {'Name': ['Alice', 'Bob', 'Charlie'],
-        'Age': [25, 30, 35],
-        'City': ['New York', 'Los Angeles', 'Chicago']}
-df = pd.DataFrame(data)
+# Define the path to your CSV file
+CSV_FILE = 'data.csv'
 
-# Function to display and allow interactive editing of a DataFrame row
-def edit_row(row_index):
-    # Create widgets for each column in the row
-    name_widget = widgets.Text(value=df.at[row_index, 'Name'], description='Name:')
-    age_widget = widgets.IntText(value=df.at[row_index, 'Age'], description='Age:')
-    city_widget = widgets.Text(value=df.at[row_index, 'City'], description='City:')
+# Function to load data from the CSV file
+def load_data():
+    if os.path.exists(CSV_FILE):
+        return pd.read_csv(CSV_FILE)
+    else:
+        return pd.DataFrame(columns=['Column1', 'Column2', 'Column3'])
+
+# Function to save data back to the CSV file
+def save_data(df):
+    df.to_csv(CSV_FILE, index=False)
+
+# Function to display an editable HTML table
+def display_editable_table(df):
+    html = '<form method="POST">'
+    html += '<table border="1">'
     
-    # Display widgets to edit the row
-    display(name_widget, age_widget, city_widget)
+    # Create header
+    html += '<tr>'
+    for col in df.columns:
+        html += f'<th>{col}</th>'
+    html += '</tr>'
     
-    # Function to save changes back to the DataFrame
-    def save_changes(b):
-        df.at[row_index, 'Name'] = name_widget.value
-        df.at[row_index, 'Age'] = age_widget.value
-        df.at[row_index, 'City'] = city_widget.value
-        print(f"Row {row_index} updated.")
-        display(df)
+    # Create editable rows
+    for i, row in df.iterrows():
+        html += '<tr>'
+        for col in df.columns:
+            html += f'<td><input type="text" name="{col}_{i}" value="{row[col]}"></td>'
+        html += '</tr>'
     
-    # Save button
-    save_button = widgets.Button(description="Save")
-    save_button.on_click(save_changes)
-    display(save_button)
+    html += '</table>'
+    html += '<button type="submit">Save Changes</button>'
+    html += '</form>'
+    
+    display(HTML(html))
 
-# Dropdown to select a row to edit
-row_dropdown = widgets.Dropdown(options=list(df.index), description="Select Row:")
-edit_button = widgets.Button(description="Edit")
+# Function to update the DataFrame from form input
+def update_data_from_form(df, form_data):
+    for i in range(len(df)):
+        for col in df.columns:
+            form_key = f'{col}_{i}'
+            if form_key in form_data:
+                df.at[i, col] = form_data[form_key]
 
-# Display selected row for editing
-def on_edit_button_click(b):
-    edit_row(row_dropdown.value)
+# Load initial data from CSV
+df = load_data()
 
-edit_button.on_click(on_edit_button_click)
+# Display the editable table
+display_editable_table(df)
 
-# Display dropdown and edit button
-display(row_dropdown, edit_button)
+# Function to simulate form submission (since Jupyter doesn't support native form POST handling)
+def handle_form_submission(form_data):
+    # Update data based on the form submission
+    update_data_from_form(df, form_data)
+    # Save the updated data back to CSV
+    save_data(df)
+    # Display the updated table
+    display_editable_table(df)
+    print("CSV file updated successfully!")
 
-# Display initial DataFrame
-print("Initial DataFrame:")
-display(df)
+# Simulate form data submission (replace this with actual form inputs in a real app)
+mock_form_data = {
+    'Column1_0': 'A1_Updated',
+    'Column2_0': 'B1_Updated',
+    'Column3_0': 'C1_Updated',
+    'Column1_1': 'A2_Updated',
+    'Column2_1': 'B2_Updated',
+    'Column3_1': 'C2_Updated',
+}
+
+# Call this function to simulate form submission and update CSV
+handle_form_submission(mock_form_data)
