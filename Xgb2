@@ -487,6 +487,8 @@ Several techniques were used to explain the model’s decisions:
 
 7. AARC (Adverse Action Reason Codes):
 
+
+
 The ECOA Regulation B requires creditors to provide reasons for denying credit applications. The top 1% scoring population is used as a reference to calculate the score differences for rejected applicants. Shapley values are applied to distribute the score differences across features. An example showed how features like revolving credit balances impacted rejection decisions. This process helps provide clarity and fairness in credit decisions.
 
 8. AARC Reference Points Calculation:
@@ -513,5 +515,305 @@ This consolidated output provides an overview of each aspect discussed in this s
 
 
 
+Let’s dive deeper into the Performance Benchmark from CoE to further analyze the findings.
 
+Key Observations from the Benchmark:
+
+	1.	Segments Evaluated:
+	•	The benchmark evaluates performance across two main segments:
+	•	Established_DDA: Refers to accounts with an established history in Direct Deposit Accounts (DDA).
+	•	No_Low_DDA: Accounts with no or low DDA activity.
+Each segment includes three models: TTD, KGB, and WF KGB. These models are compared against benchmarks like G12 score and FICO09, using metrics such as KS (Kolmogorov-Smirnov Statistic) and AUC (Area Under the Curve).
+	2.	Key Metrics:
+	•	KS measures the separation between positive and negative distributions, indicating how well the model distinguishes between different outcomes. Higher values suggest better discriminatory power.
+	•	AUC indicates how well the model can differentiate between positive and negative classes. Higher AUC values signify better overall performance.
+
+Detailed Findings:
+
+Established_DDA Segment:
+
+	•	TTD:
+	•	In terms of KS, the ML (Machine Learning) model consistently outperforms the benchmark, with improvements of 5% on train data, 4% on test data, and 6% on out-of-time (OOT) data.
+	•	For AUC, the ML model shows marginal improvements (1%-3%) compared to the benchmark across train, test, and OOT datasets. This suggests that the ML model is slightly better at distinguishing between classes in established DDA accounts.
+	•	KGB:
+	•	Similar trends are observed, with KS improvements of 5%-7% in ML performance compared to the benchmark.
+	•	AUC improvements range from 1% to 4%, showing that the ML model adds value by offering slightly better classification abilities than the benchmark.
+	•	WF KGB:
+	•	The ML model shows the most significant improvements in KS, with a 7%-9% lift over the benchmark, indicating a considerable enhancement in distinguishing between outcomes in this segment.
+	•	AUC improvements range from 2%-4%, showing consistent model superiority.
+
+No_Low_DDA Segment:
+
+	•	TTD:
+	•	The ML model exhibits minimal improvements over the benchmark in this segment. KS shows no improvement on the train set and only marginal improvements in test and OOT sets.
+	•	AUC improvements are also modest, with only a 1%-2% increase over the benchmark. This suggests that for No_Low_DDA accounts, the model struggles to provide significant added value compared to the benchmark.
+	•	KGB:
+	•	The ML model’s performance is mixed, with no improvements in KS on the training set and negative KS lifts in the test and OOT datasets. This indicates that the ML model is not generalizing as well as expected in the No_Low_DDA segment.
+	•	AUC improvements are also minimal, suggesting limited benefits from using the ML model in this particular segment.
+	•	WF KGB:
+	•	Similar to the KGB model, WF KGB shows negative lifts in both KS and AUC metrics, indicating that the ML model is underperforming compared to the benchmark. This reinforces the challenge of improving model performance for the No_Low_DDA population, where the dataset may be sparse or noisy, making it harder for the model to distinguish outcomes effectively.
+
+Key Takeaways:
+
+	1.	ML Model’s Strength in Established_DDA:
+	•	The ML models generally perform well in the Established_DDA segment, showing strong lifts in both KS and AUC metrics. This indicates that when there is an established history of account activity (like consistent direct deposits), the model is better at predicting outcomes compared to the benchmark models.
+	•	The ML models appear to extract meaningful patterns from the data in this segment, allowing them to outperform benchmarks like G12 and FICO09.
+	2.	Challenges in No_Low_DDA:
+	•	The No_Low_DDA segment proves more challenging for the ML models. With minimal or no DDA activity, it becomes difficult for the model to extract useful features that would differentiate between classes.
+	•	The results show either minimal or negative lifts in KS and AUC for this segment, especially in WF KGB. This suggests that either the dataset is too limited in predictive features or the model needs further refinement to handle sparse or low-activity accounts.
+	3.	Business Focus on Bureau Data:
+	•	A crucial finding from the benchmark is that the business wants the No_Low_DDA model to solely focus on consumer bureau data to prescreen prospects, which further constrains the model’s ability to leverage additional features like Business DDA data.
+	•	In contrast, the G12 model outperforms in the No_Low_DDA segment because it uses Business DDA data, which the new ML model does not leverage. This puts the ML model at a disadvantage, as it is forced to work with a more limited feature set.
+
+Conclusion:
+
+The ML models built by the CoE perform well in the Established_DDA segment, consistently outperforming benchmarks like G12 and FICO09 in both KS and AUC metrics. However, the performance is notably weaker in the No_Low_DDA segment, where the lack of direct deposit activity and limited feature set make it difficult for the model to distinguish between outcomes effectively. The business’s decision to restrict the model to consumer bureau data adds another layer of complexity, limiting the model’s ability to improve predictions in this challenging segment. Further work might be needed to improve performance in the No_Low_DDA population, perhaps through feature engineering or the inclusion of additional data sources.
+
+If you need more detailed insights or explanations on specific points, feel free to ask!
+
+Uncertainty Quantification (UQ) is a critical process used in model validation to assess how sensitive a model’s predictions are to variations in data or changes in the model itself. In the context of machine learning, uncertainty quantification helps in understanding the robustness and reliability of a model by quantifying how much uncertainty is associated with its predictions.
+
+Here is a more detailed explanation based on the image related to Uncertainty Quantification from the session:
+
+Objective of Uncertainty Quantification:
+
+The goal of uncertainty quantification is to assess whether all important sources of variation in the data and model have been identified and quantified. This ensures that the model’s performance is stable and reliable under varying conditions or inputs.
+
+Steps in Uncertainty Quantification (UQ):
+
+	1.	Bootstrapping the Data:
+	•	Bootstrap samples are generated by repeatedly resampling from the original training data with replacement. In the case discussed in the session, 20 bootstrapped training datasets were created. Each dataset is slightly different from the others, allowing the model’s sensitivity to be evaluated across different training scenarios.
+	•	Bootstrapping is useful because it allows you to simulate how the model would perform on different samples of data, thereby giving insight into the variability of the model’s predictions.
+	2.	Training Models on Bootstrapped Data:
+	•	A LightGBM model is trained on each of the 20 bootstrapped datasets. Since each dataset is slightly different due to the resampling process, this step helps in understanding how variations in the training data affect the model’s predictions.
+	•	By training on these different datasets, we can evaluate how consistent the model’s performance is across different versions of the data.
+	3.	Scoring the Population:
+	•	Each of the 20 models (trained on the bootstrapped datasets) is used to score the entire population. This gives 20 different sets of predictions for the same set of data.
+	•	By looking at the variation in predictions across these 20 models, we can assess how much uncertainty there is in the model’s predictions.
+	4.	Calculating the Score Range:
+	•	For each observation in the dataset, the score range (difference between the maximum and minimum predicted scores) is calculated. This range provides a direct measure of uncertainty: a large range indicates that the model’s predictions are highly variable, while a small range suggests stable and consistent predictions.
+	5.	Visualizing Uncertainty in Predictions:
+	•	The final step is to visualize the uncertainty in the model’s predictions across the 20 bootstrapped models. The image provided shows various visualizations to highlight the uncertainty in model predictions.
+
+Visualizations and Findings:
+
+	1.	Distribution of the Average Predicted Score by Model:
+	•	This plot shows the average predicted score for each model across the 20 bootstrapped datasets. If the model is robust, the average predicted scores should be consistent across different models.
+	•	The image shows that the average predicted scores remain relatively stable across the 20 models, indicating that the model is robust to small variations in the training data.
+	2.	Distribution of the Standard Deviation of Predicted Scores:
+	•	This plot shows the standard deviation (std dev) of the predicted scores for each model. The standard deviation gives a measure of the spread of the predictions: lower std dev means that predictions are tightly clustered, while higher std dev means predictions are more spread out.
+	•	The std dev values are also relatively stable across the 20 models, which suggests that the uncertainty in the model’s predictions is controlled and not highly variable.
+	3.	Score Range Variations Among the Train Data (Excluding Top 200 Scores):
+	•	This plot shows the distribution of score ranges for the majority of the data (excluding the top 200 scores). The score range is calculated as the difference between the maximum and minimum predicted score for each observation across the 20 models.
+	•	The majority of the observations have relatively small score ranges, indicating that the model’s predictions are consistent and not highly sensitive to changes in the training data.
+	4.	Top 200 Score Ranges Among the Train Data:
+	•	This plot shows the score ranges specifically for the top 200 observations in the dataset. These observations might represent edge cases or more difficult predictions, which is why they have larger score ranges than the general population.
+	•	While most score ranges are small, a few larger ranges are observed in the top 200 scores, indicating higher uncertainty for these specific predictions.
+
+Key Findings:
+
+	•	Score Stability: The mean and standard deviation of the predicted scores are stable across the different models trained on bootstrapped datasets. This indicates that the model’s predictions are robust and not overly sensitive to small variations in the data.
+	•	Minimal Score Range: The score range (max - min) is small for the vast majority of observations. Less than 0.03% of observations have a score range above 40, which means the model is consistently producing similar predictions for most of the population. This further confirms the robustness of the model.
+	•	Edge Cases: While the model performs consistently for most of the population, the top 200 score ranges show slightly higher uncertainty. These are likely edge cases where the model struggles more to make confident predictions, leading to a wider range of predicted scores.
+
+Conclusion:
+
+The uncertainty quantification process demonstrates that the model is stable and performs consistently across different bootstrapped datasets. The mean and standard deviation of the predicted scores are stable, and score ranges are small for the majority of the population. However, there is slightly more uncertainty for the top 200 observations, indicating that the model may require further refinement for handling difficult cases. Overall, the results suggest that the model is robust and reliable under small changes in the training data.
+
+If you need additional clarifications or more details on any specific part of the uncertainty quantification process, feel free to ask!
+
+Weakness Detection Through Residual Analysis
+
+Weakness detection through residual analysis is a technique used to determine whether there are remaining patterns or signals in the residuals of a model that could indicate poor model performance or areas where the model can be improved. By analyzing the residuals, you can identify potential weaknesses in the model and improve its accuracy or generalization.
+
+Here’s an in-depth explanation of the process, based on the image provided:
+
+Objective of Weakness Detection:
+
+The purpose is twofold:
+
+	1.	Global Analysis: Check if there are any remaining signals in the residuals that might indicate that the model has not fully captured the patterns in the data. If there are leftover signals, they might be used to improve the model’s performance further.
+	2.	Local Analysis: Identify specific regions or subgroups in the data where the model is underperforming. This can help isolate areas where the model’s predictions are consistently poor, allowing for targeted improvements.
+
+Approach to Residual Analysis:
+
+Residual analysis is typically done using residual models—models that are trained on the residuals of the original model. The residuals are simply the differences between the actual outcomes and the predicted outcomes from the model. If the original model was perfect, the residuals would be pure noise. However, if the residuals show structure, there might be weaknesses in the model that could be addressed.
+
+Two Residual Models:
+
+	1.	Global Offset Residual Model:
+	•	In this approach, the residuals from the CoE’s (Center of Excellence) target model are used as the base margin. The residuals from this base margin are then boosted with an XGBoost model to see if any further improvements can be made.
+	•	This model helps detect global issues, such as if the entire population is being under-predicted or if certain features are not being fully captured.
+	2.	Local Linear Model-Based Tree (MBT):
+	•	This is a local model that fits a linear model-based tree (MBT) to the residuals of the global offset model. The goal of this model is to capture local patterns in the data that might not have been captured by the global model.
+	•	It helps identify specific regions or subsets of data where the original model may be underperforming, potentially due to interactions between variables that were not modeled correctly.
+
+Key Metrics in Residual Analysis:
+
+The performance of the residual models is evaluated using standard metrics like:
+
+	•	AUC (Area Under the Curve): Measures the model’s ability to distinguish between classes. A higher AUC suggests better model performance.
+	•	KS (Kolmogorov-Smirnov Statistic): Measures the separation between the positive and negative distributions, indicating how well the model is differentiating between the two outcomes.
+
+Findings:
+
+	1.	Global Offset and Local Residual Models:
+	•	Both the global and local residual models performed similarly in terms of AUC and KS metrics across different datasets (e.g., 70D, 30V, OOT). There was little difference between the global and local models, suggesting that the model’s overall structure captured the necessary relationships well.
+	•	The metrics remained consistent, with minimal differences between the global offset model and the local model. For example:
+	•	The AUC and KS metrics are close to 0.763 and 0.403, respectively, for both models across different time frames, indicating that the residuals did not contain substantial leftover signals.
+	2.	No Significant Signals Left in Residuals:
+	•	The residual analysis showed that no significant signals were left in the residuals. This means that the original model has done a good job of capturing the important patterns in the data, and no major improvements could be made by further boosting the residuals.
+	•	If there had been signals left in the residuals, it would indicate that the original model was missing something, and further boosting (like with the XGBoost model) could have improved the predictions.
+	3.	CICE Plot:
+	•	The CICE plot (Cumulative Importance Curves Error) was used to visualize whether there was any significant error left in the model. The flatness of the CICE plot suggests that the error in the model is minimal, meaning that the residuals are close to being pure noise.
+	4.	Permutation Variable Importance:
+	•	Permutation variable importance measures how much a feature contributes to the model’s residuals. In this case, the variable importance plot showed that no features stood out as having a major impact on the residuals, further indicating that the model has accounted for the significant relationships in the data.
+	5.	Residual Model Heatmap:
+	•	The heatmap of residuals provides a visual representation of the correlation between features in the residual model. In this case, the heatmap showed no strong correlations between features, suggesting that no major interactions were missed by the original model.
+
+Conclusion:
+
+The residual analysis confirms that the original model performs well both globally and locally, with no significant signals left in the residuals. This means that the model has captured the key relationships in the data and that further improvements to the model’s structure are unlikely to yield significant gains in performance.
+
+However, MRF (Model Risk Function) noted that the CoE did not explain the bimodal shape observed in the residual distributions, which could indicate two distinct groups in the data or some unaccounted interaction. Further investigation into this bimodal shape might be warranted.
+
+Importance of Residual Analysis for Model Weakness Detection:
+l
+	•	Residual analysis is a powerful tool for identifying model weaknesses. By checking the residuals for leftover patterns or signals, modelers can determine whether the model is missing important information.
+	•	The global residual model helps in identifying broad issues, while the local residual model can identify more targeted weaknesses in specific subgroups.
+	•	In this case, the residual analysis confirmed that the original model is robust, and no further improvements were necessary. However, identifying the reason for the bimodal shape in some of the residuals would enhance the interpretability and trust in the model.
+
+If you need further elaboration on any specific part of residual analysis or other related topics, feel free to ask!
+
+
+Adverse Action Reason Codes (AARC) - In-depth Explanation
+
+Adverse Action Reason Codes (AARC) are a critical tool for providing transparency in credit decisions, especially in cases where a lender denies an application or takes other adverse actions (e.g., raising interest rates or limiting credit). They are required under the Equal Credit Opportunity Act (ECOA) Regulation B, which mandates that creditors disclose the principal reasons for denying credit or taking any other adverse action.
+
+Objective of AARC:
+
+The primary goals of AARC are:
+
+	1.	Transparency: Providing clear, objective reasons to the applicant for the denial or adverse action.
+	2.	Fair Lending Practices: Ensuring that credit decisions are made based on objective, measurable criteria rather than biases or unfair practices.
+	3.	Compliance with ECOA: By providing adverse action reasons, lenders comply with ECOA Regulation B, which promotes fairness and prevents discrimination in credit markets.
+
+AARC Calculation Process:
+
+The process of determining Adverse Action Reason Codes involves comparing the rejected applicant’s profile with a reference profile of high-scoring individuals. This comparison helps pinpoint the key factors that contributed to the adverse decision.
+
+Here’s a breakdown of the steps:
+
+1. Top 1% Population as a Reference:
+
+	•	In most cases, the top 1% of the scoring population, representing individuals with the best credit profiles, is used as the reference group.
+	•	The rejected applicant’s score is compared to this top 1% population to identify differences between their profiles and that of the best creditworthy applicants. The bigger the differences, the more likely they contributed to the adverse action.
+
+2. Weight of Evidence (WOE) Binning:
+
+	•	The key features or variables in the credit model (e.g., revolving credit balances, income, credit history) are binned using WOE binning. This is a statistical method that converts continuous or categorical variables into discrete bins based on how well they differentiate between good and bad credit outcomes.
+	•	Binning helps simplify the analysis by grouping values of features into meaningful categories. For example, a feature like “revolving credit balance” might be divided into bins like [0–$1000], [$1000–$5000], and so on.
+
+3. Selecting the Reference Bin:
+
+	•	For each feature, the bin with the highest concentration of top 1% scorers is selected as the reference bin. This bin represents the most favorable value for that feature in the top scoring population.
+	•	For instance, in the case of a feature like balance to credit amount ratio, the bin that contains individuals with a low ratio might be selected as the reference bin, as these individuals are less likely to be seen as credit risks.
+
+4. Shapley Value Calculation:
+
+	•	Shapley values are used to attribute the overall score difference between the rejected applicant and the reference population to each feature. The Shapley value is derived from cooperative game theory and represents how much each feature contributes to the outcome (in this case, the rejection).
+	•	The Shapley value shows which features had the most significant impact on the rejection decision. Features with higher Shapley values contributed more to the score difference and are more likely to appear as adverse action reasons.
+
+5. Adverse Action Reason Codes:
+
+	•	After the Shapley values are calculated, the top contributing features are listed as Adverse Action Reason Codes (AARC).
+	•	For instance, if a low credit limit and high debt-to-income ratio contributed the most to the rejection, these would be listed as the primary reasons for the denial.
+	•	The adverse action reason codes explain to the applicant which factors most significantly impacted their application outcome, providing clarity on what needs to be improved.
+
+AARC Example: Shapley Calculation
+
+Let’s consider an example of how Shapley values are used in the AARC calculation:
+
+	•	Suppose the feature REH7120 represents the total revolving credit balance, and the feature ALL2320 represents the credit utilization ratio.
+	•	For a rejected applicant, the score for REH7120 might be 5, while the top 1% reference score for this feature is 30. The difference is 25, indicating that the applicant has a significantly higher revolving balance than the top 1% population.
+	•	The Shapley value for this feature would be calculated based on this difference, and if it turns out to be significant, REH7120 would be listed as the first adverse action reason.
+	•	Similarly, the score for ALL2320 might show a difference of 20 between the rejected applicant and the reference population. This feature would also have a high Shapley value and might be listed as the second adverse action reason.
+
+Handling Edge Cases and Special Codes:
+
+In some cases, there might be special scenarios where features like revolving credit balances or business card usage don’t apply to the applicant. These cases are handled by suppressing specific codes (e.g., Bus7130 for business card balances or special code 998 for no revolving bankcard trade). The suppression logic ensures that these irrelevant features don’t end up being listed as adverse action reasons.
+
+Example of Suppression:
+
+	•	Bus7130: This refers to the balance-to-credit amount ratio on an open revolving bankcard trade. If an applicant does not have a revolving bankcard trade, a special suppression code (like 998) is applied to avoid listing this as an adverse action reason, which would be irrelevant and misleading.
+	•	The CoE raised concerns in one example about issuers who do not report business card information to consumer credit bureaus. In this case, an applicant could be unfairly penalized for not having business card information, so the suppression logic ensures that no inaccurate reason codes are assigned.
+
+Documentation and Compliance:
+
+	•	To maintain compliance and ensure transparency, any suppression logic or special handling of adverse action reasons is documented in the Model Development Documentation (MDD). This documentation tracks all adjustments made to the AARC logic and ensures that the process remains auditable and in line with regulatory requirements.
+
+Stress Testing AARC:
+
+Another aspect to consider is stress testing the AARC logic. Stress testing involves simulating economic downturns or adverse financial conditions to see how the model’s output (and the resulting AARC) changes under such conditions. The goal is to ensure that the model remains robust and continues to provide meaningful adverse action reasons, even in challenging economic environments.
+
+For instance, in a mild adverse or severely adverse scenario, certain features (such as debt-to-income ratio or credit balances) might shift due to economic factors like job loss or inflation. The stress testing process would involve shifting these features and recalculating the model output and AARC to ensure that the logic holds up under stress.
+
+Conclusion:
+
+The Adverse Action Reason Codes (AARC) process is a critical component of lending transparency and fairness. It involves comparing a rejected applicant’s profile to a reference population of top scorers, using Shapley values to determine which features contributed most to the adverse action, and providing clear, objective explanations for the decision.
+
+AARC helps ensure that lending decisions are based on objective factors and that applicants have a clear understanding of why they were denied. This process is not only essential for regulatory compliance but also plays a key role in maintaining trust and fairness in credit markets.
+
+If you have further questions about AARC or its application, feel free to ask!
+
+The image provides an explanation of Model Explainability using FANOVA (Functional ANOVA Decomposition). Here’s a detailed breakdown of the information:
+
+FANOVA (Functional ANOVA Decomposition):
+
+The purpose of FANOVA is to decompose the contribution of different variables in a model into their main effects and interaction effects. This allows for enhanced interpretation of how individual variables and their interactions affect the model’s output.
+
+Equation:
+
+The general equation for FANOVA decomposition is:
+
+\[
+F(x) = f_1(x_1) + f_2(x_2) + f_3(x_3) + f_{12}(x_1, x_2) + f_{13}(x_1, x_3) + f_{23}(x_2, x_3) + \dots
+\]
+
+	•	Main effects (￼, ￼, etc.) represent the individual contribution of each feature to the model’s output.
+	•	Interaction effects (￼, ￼, etc.) represent how pairs (or more) of variables interact to influence the model’s predictions.
+
+Decomposition Conditions:
+
+The decomposition must meet two conditions:
+
+	1.	Main effects and interaction effects should have zero means: This ensures that the model does not have any bias and that the decomposition represents true variable contributions.
+	2.	Main effects (￼) and interaction effects (￼) should be orthogonal: Orthogonality ensures that the main and interaction effects are independent of each other, which simplifies the interpretation of their contributions.
+
+Decomposition Methods:
+
+FANOVA decomposition can be done using two primary methods:
+
+	1.	Sobo’s Method (CoE’s Choice):
+	•	This method is based on the Global Sensitivity Indices for Nonlinear Mathematical Models Review.
+	•	Assumptions: It assumes variable independence and uses the marginal (rather than joint) distribution of the features for integration.
+	•	Advantages: It is computationally efficient and relatively easy to implement, making it a practical choice when independence assumptions are reasonable.
+	2.	Hooker’s Method:
+	•	This method comes from Generalized Functional ANOVA Diagnostics for High Dimensional Functions of Dependent Variables.
+	•	Advantages: It does not rely on variable independence assumptions, making it a more flexible approach for models where variables are highly interdependent.
+	•	Disadvantages: Hooker’s method is more computationally expensive because it does not make simplifying assumptions, making it less efficient in certain contexts.
+
+Findings:
+
+	•	The validators confirmed that the FANOVA decomposition by the CoE met both of the key conditions (zero means and orthogonality). This means that the decomposition accurately represented the main and interaction effects in the model, allowing for proper interpretation.
+
+Recommendations by MRF:
+
+	•	MRF recommended that the CoE provide a clear rationale for choosing Sobo’s method over Hooker’s method. Since Sobo’s method assumes variable independence, it may not always be the best choice for all models. MRF suggested that CoE could either justify its choice of Sobo’s method or consider using Hooker’s approach in future projects to account for potential dependencies between variables.
+
+Conclusion:
+
+FANOVA decomposition is a powerful tool for explaining model predictions by separating the main effects of individual variables from their interaction effects. While Sobo’s method is computationally efficient, Hooker’s method offers more flexibility in handling dependent variables. The CoE successfully applied FANOVA decomposition, and future work may involve further consideration of the method’s assumptions and applicability.
+
+If you need further explanation or clarification, feel free to ask!
 
