@@ -1,43 +1,517 @@
-import numpy as np
-from scipy.stats import mode
+The image you’ve shared outlines key details related to model robustness, metrics, and performance comparison for different models. Here’s a breakdown of the information presented:
 
-def w_percentile_cont(data, weights, percentiles):
-    idx = np.argsort(data)
-    cw = np.cumsum(np.array(weights)[idx])
-    return np.interp(np.array(percentiles) / 100 * cw[-1], cw - weights[idx] / 2, np.array(data)[idx]), cw[-1]
+Key Definitions and Metrics:
 
-def w_mean_cont(data, weights):
-    return np.average(data, weights=weights), np.sum(weights)
+	•	Robustness: Defined as the ability of a model to maintain stable output or performance in the presence of small noise or changes in covariates.
+	•	Metrics:
+	•	ArPPV (Adjusted Partial Positive Predictive Value)
+	•	Perturbed AUC (Area Under the Curve)
+	•	Spearman Rank Correlation (Used to assess how well the relationship between variables can be described using a monotonic function)
 
-def w_mode_cont(data, weights):
-    return mode(data, axis=None, weights=weights)[0][0], np.sum(weights)
+Models Compared:
 
-# Example usage for continuous data:
-data = [1.2, 2.5, 3.7, 4.6, 5.0]
-weights = [10, 20, 10, 5, 5]
-percentiles = [25, 50, 75]
-print("Weighted Percentile (Cont):", w_percentile_cont(data, weights, percentiles))
-print("Weighted Mean (Cont):", w_mean_cont(data, weights))
-print("Weighted Mode (Cont):", w_mode_cont(data, weights))
+	1.	LightGBM_lob: The final model by the Center of Excellence (CoE).
+	2.	ScoreCard: Model by the MRM (Model Risk Management) team.
+	3.	XGB_dep2: Represents the maximum AUC on the test set after Hyperparameter Optimization (HPO) on an unconstrained XGBoost model with depth 2.
+	4.	XGB_dep6: Represents an overfit unconstrained XGBoost model with depth 6.
+
+Model Performance:
+
+The table compares the ROC-AUC (Receiver Operating Characteristic - Area Under Curve) for each model across different datasets:
+
+	•	Train ROC: Performance on the training data.
+	•	Test ROC: Performance on the test set.
+	•	OOT ROC: Performance on out-of-time data (generalization capability).
+
+Model	Train ROC	Test ROC	OOT ROC
+LightGBM_lob	0.76678	0.76280	0.77705
+ScoreCard	0.76446	0.76111	0.77568
+XGB_dep2	0.77029	0.76284	0.77677
+XGB_dep6	0.80167	0.76105	0.77065
+
+Insights:
+
+	•	XGB_dep6 shows overfitting as evidenced by a very high train ROC (0.80167) but lower test and OOT performance (0.76105 and 0.77065).
+	•	LightGBM_lob and XGB_dep2 show the most consistent generalization across the test and out-of-time sets.
+	•	ScoreCard performs well but is slightly behind the LightGBM and XGB_dep2 in OOT ROC.
+
+If you need further analysis or insights from this, feel free to let me know!
+
+The image you’ve shared presents a performance benchmark from the Center of Excellence (CoE), comparing different machine learning models across various segments and metrics.
+
+Key Components:
+
+Segments:
+
+	1.	Established_DDA: This segment seems to include accounts with a more established Direct Deposit Account (DDA) history.
+	2.	No_Low_DDA: This segment likely refers to accounts with no or low DDA activity.
+
+Scores & Metrics:
+
+	1.	KS (Kolmogorov-Smirnov Statistic): This measures the separation between positive and negative distributions. Higher values indicate better model discrimination.
+	2.	AUC (Area Under the Curve): Measures how well the model distinguishes between classes. A higher AUC indicates better performance.
+
+Each segment and score category is benchmarked against:
+
+	•	G12 score: Refers to a business model that uses Business DDA information.
+	•	FICO09: A traditional credit score benchmark.
+
+Key Findings:
+
+	•	LightGBM outperforms G12 and FICO09 on all populations except for WF KGB in the No_Low_DDA segment, where G12 outperforms LightGBM.
+	•	Reason for G12 outperforming: The G12 model uses Business DDA information that the new model (LightGBM) does not leverage.
+	•	Business Request: The business wants the No_Low_DDA model to solely use consumer data from the bureau to prescreen prospects.
+
+Performance Breakdown:
+
+Established_DDA:
+
+	•	TTD:
+	•	ML lift (Machine Learning lift) over benchmark is consistently positive (2%–6%) in both KS and AUC across train, test, and out-of-time datasets.
+	•	KGB:
+	•	ML lift over benchmark is also positive, with notable lifts (5%–7%) in KS and 2%–4% in AUC.
+	•	WF KGB:
+	•	ML lift is strong, particularly in KS metrics, showing 7%–9% improvements over benchmarks.
+
+No_Low_DDA:
+
+	•	TTD:
+	•	Minimal or negative ML lift in KS, except a slight improvement in test and out-of-time AUC (1%–2%).
+	•	KGB:
+	•	ML lift is marginal, with some positive gains in KS and slight improvements in AUC.
+	•	WF KGB:
+	•	Negative ML lift in both KS and AUC, showing that G12’s use of Business DDA data significantly boosts its performance over the new model.
+
+Highlighted Insights:
+
+	•	The No_Low_DDA model is constrained by its exclusion of Business DDA information, as required by the business, which impacts its performance compared to G12.
+
+Let me know if you’d like more details or analysis!
 
 
-def w_percentile_disc(data, weights, percentiles):
-    idx = np.argsort(data)
-    cw = np.cumsum(np.array(weights)[idx])
-    return np.interp(np.array(percentiles) / 100 * cw[-1], cw - weights[idx] / 2, np.array(data)[idx]), cw[-1]
+The image you’ve shared shows the MRM’s Independent Benchmarking results comparing different segments and populations based on performance metrics, such as KS and AUC, for the models XGBoost and GAMI-Tree against the CoE’s LOB (Line of Business) model.
 
-def w_mean_disc(data, weights):
-    return np.average(data, weights=weights), np.sum(weights)
+Key Components:
 
-def w_mode_disc(data, weights):
-    vals, counts = np.unique(data, return_counts=True)
-    max_index = np.argmax(counts)
-    return vals[max_index], np.sum(weights)
+Models:
 
-# Example usage for discrete data:
-data = [1, 2, 3, 4, 5]
-weights = [10, 20, 10, 5, 5]
-percentiles = [25, 50, 75]
-print("Weighted Percentile (Disc):", w_percentile_disc(data, weights, percentiles))
-print("Weighted Mean (Disc):", w_mean_disc(data, weights))
-print("Weighted Mode (Disc):", w_mode_disc(data, weights))
+	•	MRM(XGBoost): Machine Learning model based on XGBoost used by MRM (Model Risk Management).
+	•	MRM(GAMI-Tree): Another model based on the Generalized Additive Model with Interactions (GAMI).
+	•	LOB: Line of Business model, likely a reference model being used for benchmarking.
+
+Metrics:
+
+	1.	KS: Kolmogorov-Smirnov statistic, used for evaluating how well a model separates two distributions.
+	2.	AUC: Area Under the Curve, used for assessing the classification ability of a model.
+	3.	Lift (f|KS or f|AUC): Shows how much lift is provided by the XGBoost or GAMI-Tree models over the LOB model based on KS or AUC.
+
+Segments and Populations:
+
+The benchmarking is divided into three key segments:
+
+	1.	Total Population: Includes the combined population of various models (AGB, KGB, WFKGB).
+	2.	Established_DDA: Accounts with an established history in the DDA.
+	3.	No_Low_DDA: Accounts with no or low DDA activity.
+
+For each segment, results are provided for different time horizons, such as 70 days (70D), 30 days (30V), and out-of-time (OOT) datasets.
+
+Observations:
+
+	1.	XGBoost Model:
+	•	The KS and AUC values are consistent across different segments and populations, with slight improvements seen in AGB, KGB, and WFKGB across both Established_DDA and No_Low_DDA populations.
+	•	The lift values (f|KS and f|AUC) across the board are minimal but generally positive, indicating marginal improvements over the LOB model.
+	2.	GAMI-Tree Model:
+	•	Similar trends are observed with GAMI-Tree, where the lift values, while small, show that its performance is comparable to the CoE’s LOB model.
+
+Key Takeaway:
+
+MRM has concluded that both XGBoost and GAMI-Tree models perform on par with the CoE’s LOB model. The small, positive lift values indicate that the models provide slight improvements over the LOB model but are generally close in performance.
+
+This benchmarking highlights that MRM’s machine learning models are validated as effective alternatives to the CoE model.
+
+If you need further clarification or more insights on the model comparison, let me know!
+
+
+The image outlines the process and results of Uncertainty Quantification for a LightGBM model in the “Established_DDA” segment. Here’s a breakdown of the key components and findings:
+
+Purpose:
+
+The goal is to assess whether the model developer has accounted for all important sources of variation in the data and model, and to quantify their magnitudes.
+
+Steps Involved:
+
+	1.	Create 20 bootstrapped training datasets to capture variation.
+	2.	Train a LightGBM model on each of these 20 bootstrapped samples.
+	3.	Score the entire population using each model.
+	4.	For each observation, calculate the score range (max - min) across the 20 models.
+	5.	Visualize uncertainty in the model predictions.
+
+Visualizations and Results:
+
+	1.	Distribution of the Average Predicted Score by Model:
+	•	This plot shows the average predicted score across all bootstrapped models for the Established_DDA segment. The scores fluctuate slightly but remain relatively stable, indicating consistency in the model’s predictive output.
+	2.	Distribution of the Standard Deviation of the Predicted Scores by Model:
+	•	This graph visualizes the standard deviation (std) of the predicted scores across the models. The std also remains fairly stable across the models, implying that the variability in predictions is well controlled.
+	3.	Score Range Variations Among the Train Data (except the top 200 scores):
+	•	This plot shows the distribution of the score range (max - min) across the train data, excluding the top 200 scores. The bulk of the observations have small score ranges, indicating that most predictions are consistent across models.
+	4.	Top 200 Score Ranges Among the Train Data:
+	•	This histogram highlights the score ranges for the top 200 observations in the training data. There are some larger score ranges here, indicating higher uncertainty in predictions for these top observations, but the majority of the range values are still controlled.
+
+Key Insights:
+
+	•	Considering PDO (Points to Double Odds) is 40:
+	•	The mean and standard deviation of the scores are stable across the different bootstrapped models.
+	•	The score range (max - min) is small, with less than 0.03% of observations having a range greater than 40, which indicates that the model’s predictions are fairly robust and not overly sensitive to variations in the data.
+
+This analysis demonstrates that the LightGBM model has well-quantified uncertainty and shows consistency in its predictions across different bootstrapped datasets.
+
+Let me know if you need further clarification or additional details!
+
+
+The image outlines a process for Weakness Detection through Residual Analysis to evaluate a model’s global and local performance, providing insights on potential improvements and identifying areas where the model underperforms.
+
+Purpose:
+
+	1.	Global Analysis: Check if there are leftover signals in the residuals that could further improve the model’s performance.
+	2.	Local Analysis: Identify specific regions or areas where the model performs poorly.
+
+Approach:
+
+Two residual models are used:
+
+	1.	Global Offset Residual Model:
+	•	The CoE’s model is treated as the target (baseline) model.
+	•	This model uses the base margin from the CoE’s model to continue boosting with an XGBoost offset model.
+	2.	Local Linear Model Based Tree (MBT):
+	•	Fit a Linear Model-Based Tree (MBT) to the residuals of the global offset residual model to detect any local patterns.
+
+Key Results:
+
+	•	Global and Local Performance:
+	•	Both global and local models show very close performance in terms of AUC and KS statistics across different time horizons (70D, 30V, OOT).
+	•	The residual analysis reveals no significant leftover signals, meaning that no substantial performance improvements can be made based on residuals.
+
+Key Metrics:
+
+	•	AUC (Area Under Curve) and KS (Kolmogorov-Smirnov Statistic) scores are shown for the global and local models.
+	•	The metrics are fairly consistent across Established_DDA for 70D, 30V, and OOT datasets:
+	•	AUC ranges from 0.763 to 0.777.
+	•	KS ranges from 0.398 to 0.404.
+
+Visualization Highlights:
+
+	1.	CICE Plot:
+	•	The CICE plot (Cumulative Importance Curves Error) indicates that the overall performance error is minimal, and no major residual signals are detected.
+	2.	Permutation Variable Importance:
+	•	The permutation importance chart shows which variables contribute the most to the residuals in the global offset model. This helps in understanding what influences any leftover signals in the residuals (though in this case, no significant signals are left).
+	3.	Residual Model Heatmap:
+	•	The heatmap provides a visual summary of the correlation between different features in the residual model, highlighting potential relationships or interactions.
+
+Conclusion:
+
+	•	No signals are left in the residuals. This indicates that the model has accounted for all important sources of variation in the data, and there’s no significant room for further improvement through residual analysis.
+
+This approach effectively confirms that the model performs well globally and locally, without major weaknesses in specific regions of the data.
+
+Let me know if you need more insights or explanation on any part of the analysis!
+
+
+The image you provided details Model Explainability using different methods to understand the impact of features on model predictions. Here’s a breakdown of the elements and findings:
+
+Key Methods for Model Explainability:
+
+	1.	Centralized P(1) Plot: Measures the total effect of a feature on model prediction.
+	2.	Accumulated Local Effects (ALE): Measures the total effect of a feature on model prediction while holding other features constant, offering a localized perspective of how each feature impacts predictions.
+	3.	FANOVA Decomposition: A tool that captures both the main effect and interaction effect of a predictor. This decomposition helps purify the contribution of each feature.
+
+Table Overview:
+
+The table presents features with their associated statistics, explanations, and descriptions:
+
+	•	Count: Number of instances for each range of a feature (e.g., bcc5620: [0, 280]).
+	•	P(1): Indicates the overall influence of the feature.
+	•	Center P(1): Represents the adjusted effect after centralization.
+	•	Explanation: The interpretation of each feature, providing insight into why the feature is important.
+	•	Variable Description: Describes the variable and its role in the prediction.
+
+Feature Highlight: bcc5620
+
+	•	The P(1) value for bcc5620 suggests it has a 66.5% contribution to the model’s decisions.
+	•	Explanation: This feature measures the total available credit amount on open revolving bankcard trades in the last 6 months. Applicants with lower available credit are more likely to face difficulties in making payments.
+
+Visualizations:
+
+	1.	Accumulated Local Effects (ALE) Plot (Top-left graph):
+	•	The ALE plot for bcc5620 shows how changes in this feature influence predictions. The plot has a rising curve, indicating that as the value of bcc5620 (credit amount) increases, the model predicts a lower likelihood of payment difficulties, likely suggesting better credit health.
+	2.	FANOVA (Main Effect) Plot (Top-right graph):
+	•	The main effect for bcc5620 is visualized. The step function shows the interaction across different ranges of the feature. The plot illustrates that the feature has a 10.9% contribution to the total variance in model output.
+	3.	FANOVA (Interaction Effect) Heatmap (Bottom-right graph):
+	•	This heatmap visualizes the interaction between bcc5620 and another feature, reh7120. The interactions are color-coded to show positive and negative effects. The contribution of this interaction is 2.3% to the total model variability.
+
+Key Takeaway:
+
+	•	The variable bcc5620 (available credit amount on open revolving bankcard trades) is crucial for predicting payment difficulties. The ALE plot shows the positive relationship between credit availability and better outcomes (fewer difficulties). The FANOVA decomposition highlights that this feature has significant main and interaction effects.
+
+If you need more details or further breakdown of the model explainability methods, let me know!
+
+
+The image discusses Adverse Action Reason Codes (AARC) and the use of Shapley values to explain why certain applicants are rejected, following the regulations stipulated by ECOA (Equal Credit Opportunity Act) Regulation B. Here’s a detailed breakdown of the components:
+
+Key Requirements from ECOA Regulation B:
+
+	•	Creditors must disclose the principal reasons for denying an application or taking other adverse action against a credit applicant.
+
+Approach:
+
+	1.	The Top 1% scoring population serves as the reference profile. This profile is used to calculate the score difference between a rejected applicant and the top-scoring applicant.
+	2.	Baseline Shapley value is applied to attribute the score difference to each feature, allowing for clear identification of adverse action reasons (AAR).
+	3.	Calculations are simplified when the scoring function is expressed as the sum of main effects and interaction terms.
+	4.	MRM (Model Risk Management) independently replicated the AARC process.
+
+Example of Baseline Shapley Calculation:
+
+The table provides an example of how Shapley values are used to determine the contribution of various features to the rejection decision.
+
+	•	Variables:
+	•	REH7120 (x₁) and ALL2320 (x₂) are two features.
+	•	There’s also an interaction term between these features (x₁, x₂).
+	•	Rejected Applicant’s Score: For the rejected applicant:
+	•	REH7120 has a score of 5.
+	•	ALL2320 has a score of 20.
+	•	The interaction term contributes a score of 1.
+	•	Reference (Baseline, Max) Score: For the reference profile (top 1% scorers), the corresponding scores for these features are 30, 40, and 9 respectively.
+	•	Distance from Reference: The difference between the rejected applicant’s score and the reference score:
+	•	REH7120 has a difference of 25.
+	•	ALL2320 has a difference of 20.
+	•	The interaction term difference is 8.
+	•	Total Shapley Value: This is the sum of the difference and an additional component, which helps attribute the contribution of each feature. For example:
+	•	REH7120: Total Shapley value is 31 (25 + 6).
+	•	ALL2320: Total Shapley value is 22 (20 + 2).
+	•	Interaction: Total Shapley value is 8.
+	•	Adverse Action Reason: Based on the total Shapley values, the primary reasons for rejection are ranked:
+	•	REH7120 is the 1st reason.
+	•	ALL2320 is the 2nd reason.
+
+Conclusion:
+
+This process uses Shapley values to assign responsibility for the difference in scores between a rejected applicant and the reference population, helping to determine the Adverse Action Reason Codes (AARC) in compliance with ECOA Regulation B.
+
+Let me know if you’d like more insights or further explanations on how Shapley values are used in model explainability for adverse action decisions!
+
+The image outlines the AARC (Adverse Action Reason Codes) Reference Points Calculation, focusing on how the reference is determined based on the concentration of the top 1% scoring population in a development sample.
+
+Key Steps in the Calculation:
+
+	1.	Binning the Variables:
+	•	The variables are first binned using Weight of Evidence (WOE) binning. This step groups similar values for a variable to simplify the analysis.
+	2.	Concentration of the Top 1% Population:
+	•	For each bin, the concentration of the top 1% scoring population is calculated. The bin with the highest concentration of top 1% scorers will be chosen as the reference bin, representing the best credit profile.
+	•	This reference bin helps in establishing a baseline for calculating the Baseline Shapley value, which will be used to attribute the score difference to each feature when explaining adverse action reasons.
+
+Example Table - Calculation of Reference by Concentration:
+
+The table provides an example of the binned values for a variable (bcc7110), showing:
+
+	•	Bin ranges (e.g., r00: [-inf, 1.0], r01: [1.0, 7.5], etc.).
+	•	Count: The total number of samples in each bin.
+	•	Count (Top 1%): The number of top 1% scoring individuals in each bin.
+	•	Concentration: The ratio of top 1% scoring individuals to the total number of individuals in the bin, indicating how concentrated the top 1% scorers are in each bin.
+
+Key Highlight:
+
+	•	The bin r01: [1.0, 7.5] has the highest concentration of the top 1% population (0.050247842), and thus it is chosen as the reference bin.
+	•	Other bins have lower concentrations of the top 1% population, ranging from 0.003349534 (for bin r00) to nearly zero for others.
+
+Purpose of This Calculation:
+
+The reference bin represents the best credit profile (in this case, based on variable bcc7110). When evaluating rejected applicants, their scores will be compared against this reference bin to understand why they were rejected, and the Shapley value will help quantify the contribution of each feature to this decision.
+
+If you’d like further elaboration or additional analysis on this process, feel free to ask!
+
+Understanding Adverse Action Reason Codes (AARC)
+
+Adverse Action Reason Codes (AARC) are a set of explanations that lenders and financial institutions provide to applicants when they deny credit or take adverse actions such as rejecting a loan application or increasing interest rates. These codes help ensure compliance with regulations like the Equal Credit Opportunity Act (ECOA) Regulation B, which requires creditors to disclose the principal reasons for denying an application.
+
+The Purpose of AARC:
+
+	1.	Transparency: The goal is to provide applicants with clear, data-driven reasons for rejection or adverse action.
+	2.	Fair Lending: Ensures that decisions are based on objective factors rather than biases or discriminatory practices.
+	3.	Compliance with ECOA: By providing adverse action reasons, creditors comply with federal regulations, offering applicants insights into the decisions affecting their credit applications.
+
+How AARC Is Calculated:
+
+To generate accurate AARC, the process typically involves analyzing model predictions and breaking down the contributing factors. One widely used method is the Shapley value method from cooperative game theory, which attributes a proportion of the decision to each contributing feature (or variable) in the model.
+
+Here’s a step-by-step explanation of the AARC calculation process as shown in the image:
+
+1. Top 1% Population as a Reference:
+
+	•	The top 1% of the scoring population, often representing applicants with the best credit profiles, is used as a reference for comparison. This segment is expected to have the most favorable characteristics in terms of creditworthiness.
+	•	The rejected applicant’s score is compared to the scores of this top 1% reference group. By identifying the difference between the rejected applicant’s profile and that of the top scorers, the model can pinpoint which factors led to the rejection.
+
+2. Binning Using Weight of Evidence (WOE):
+
+	•	Variables are binned, typically using WOE binning. WOE is a statistical technique used to group continuous or categorical variables into discrete categories that are predictive of the outcome, such as loan approval or rejection.
+	•	Each bin represents a range of values for a particular feature, and the concentration of top scorers is calculated within each bin.
+
+3. Selecting the Reference Bin:
+
+	•	For each variable, the bin with the highest concentration of top 1% scores is chosen as the reference bin. This bin represents the most favorable credit profile for that variable.
+	•	For example, in the table provided, the bin r01: [1.0, 7.5] for variable bcc7110 is selected as the reference bin because it has the highest concentration of top 1% scores (0.050247842).
+
+4. Shapley Value Calculation:
+
+	•	Shapley values are calculated based on the difference between the rejected applicant’s feature values and the values in the reference bin.
+	•	The Shapley value represents the contribution of each feature to the rejection decision, breaking down the impact of each variable on the final score.
+	•	The sum of all Shapley values across features gives the total contribution for each variable.
+
+5. Adverse Action Reason Codes:
+
+	•	After calculating the Shapley values, the variables that contribute most significantly to the score difference are ranked as adverse action reasons.
+	•	The top variables with the highest Shapley values are the key reasons for the adverse action (e.g., loan rejection or adverse credit terms).
+	•	For example, in a rejected credit application, Feature 1 (such as low credit available) might be the most important factor, while Feature 2 (such as a history of missed payments) could be the second most important factor in the decision.
+
+AARC Example:
+
+Here’s how it works in practice:
+
+	1.	For a rejected applicant, the score of a feature (e.g., amount of available credit) is compared to the reference score (the score for that feature in the top 1% group).
+	2.	The difference between these scores is measured. For example, if the rejected applicant has a score of 20 for available credit and the reference score is 40, the difference is 20.
+	3.	This difference is used to calculate the Shapley value, which reflects how much the available credit feature contributed to the rejection. The sum of all differences across features helps explain why the applicant was rejected.
+	4.	Based on the Shapley values, the Adverse Action Reason Codes are determined. If available credit is the largest contributor to the difference in scores, it will be listed as the primary reason for rejection.
+
+Summary:
+
+	•	AARC is a crucial tool for providing transparency to applicants, ensuring fair lending, and maintaining regulatory compliance.
+	•	By comparing rejected applicants’ profiles with those of the top 1% scoring population, creditors can identify the specific reasons for rejection.
+	•	Shapley values are instrumental in attributing the rejection decision to the relevant features, helping to explain the adverse action in a clear and understandable way.
+
+Let me know if you need further details or clarification!
+
+The image provides details about AARC Suppression, specifically focusing on how the adverse action reason codes (AARC) logic suppresses certain special codes (e.g., “bus7130”) from being included in the top 4 adverse action codes for rejected applications. Below is a breakdown of the key points:
+
+Key Components of AARC Suppression:
+
+	1.	AARC Suppression Logic:
+	•	The AARC logic is designed to suppress special code 998 related to bus7130 from appearing in the top 4 adverse action reason codes. This ensures that certain situations where data is either not relevant or available do not result in an incorrect adverse action explanation.
+	2.	Bus7130:
+	•	Bus7130 refers to the balance-to-credit amount ratio on an open revolving bankcard trade with the highest balance and a credit amount greater than $0, reported in the last 6 months.
+	•	This metric is used to assess an applicant’s creditworthiness, particularly how well they manage their available credit.
+	3.	Special Code 998:
+	•	Special code 998 indicates no revolving bankcard trade on file. This can arise in cases where the applicant does not have an open revolving credit line or a business card, which may affect the scoring model’s evaluation of their credit.
+	4.	CoE’s Email Response:
+	•	The CoE (Center of Excellence) raised a concern that several issuers do not report business cards to the consumer credit bureau. This means that in cases where there is no business card data available, the adverse action verbiage stating the absence of business cards might not be accurate.
+	•	CoE’s email further noted: “The special value indicated there is no business card. The adverse action verbiage indicating absence of business cards may not be accurate.” This issue was discussed and approved by legal, compliance, and the FRL (Fair Lending) team during the verbiage review.
+	5.	MRF Recommendation:
+	•	MRM (Model Risk Management) recommends that the CoE document the suppression of special codes in the Model Development Documentation (MDD) and attach any relevant approvals from legal and compliance teams.
+	•	This is necessary to ensure that any modifications to AARC suppression logic are traceable and align with regulatory and legal standards.
+
+Summary:
+
+	•	AARC suppression is applied to ensure that irrelevant or inaccurate codes, such as “bus7130” (balance-to-credit ratio) and code 998 (no revolving bankcard trade), are not included in the top adverse action reasons.
+	•	CoE has raised concerns about the accuracy of adverse action reasons, especially when business card data is not available, and these concerns were addressed by legal and compliance teams.
+	•	MRM advises that the CoE document these suppression decisions and approvals to maintain transparency and compliance.
+
+If you need further elaboration or additional details on AARC suppression, feel free to ask!
+
+The image focuses on Stress Testing for assessing how economic downturns affect model outputs, with a particular emphasis on shifts in feature distributions under different economic scenarios.
+
+Key Objective:
+
+The goal of stress testing is to evaluate the impact of an economic downturn on the model’s output. The test simulates different scenarios that might cause an input shift (i.e., a change in the distribution of key input variables), which in turn causes changes in the model’s predictions.
+
+Two Economic Scenarios:
+
+	1.	Mild Adverse: A moderate economic downturn scenario.
+	2.	Severely Adverse: A more extreme downturn scenario.
+
+How the Stress Test Is Conducted:
+
+	1.	Feature Shifts: The top 10 features (those most influential in the model’s prediction) are shifted in the direction of increased risk.
+	•	CoE’s approach: Shift the top features by ±0.25 (mild) or ±0.5 (severely) standard deviations (std dev).
+	•	MRM’s approach: Shift the features by 1 (mild) or 2 (severely) bins.
+	2.	Model Calculation: The model scores are recalculated based on the shifted attributes, simulating how the predictions would change under each scenario.
+	3.	Overlay Score Distributions: The score distributions from the stress-tested scenarios are plotted on top of the original distribution, showing how the predictions shift in response to the economic downturn.
+
+Results (Visualization):
+
+	1.	TTD Distribution—Established_DDA:
+	•	The distribution shows how the model’s log odds scores shift for the Established_DDA segment under mild (green) and severe (orange) adverse conditions, compared to the original (blue) distribution.
+	•	The shift indicates that, as expected, more of the population shifts towards riskier outcomes as the adverse scenario worsens.
+	2.	TTD Distribution—No_Low_DDA:
+	•	A similar plot is provided for the No_Low_DDA segment. Here too, the shift towards riskier outcomes is observed, with a broader range of log odds scores under severe adverse conditions.
+
+Conclusion:
+
+	•	Model scores shift in the expected direction under both mild and severely adverse scenarios, reflecting the expected increase in risk associated with economic downturns.
+
+MRF’s Observation:
+
+	•	The CoE did not explain why a bimodal shape is observed in some of the stress-tested score distributions. This shape suggests that there may be two distinct groups or behaviors in the population under stress, which would need further investigation to understand fully.
+
+Summary:
+
+The stress testing results align with expectations: as economic conditions worsen, the model shifts its predictions toward higher risk outcomes. However, the presence of a bimodal distribution in some segments (likely due to distinct risk subgroups) remains unexplained, and would benefit from additional analysis.
+
+Let me know if you’d like further explanations on any part of this process!
+
+Here is a comprehensive summary of all the outputs provided during this session:
+
+1. Model Robustness and Comparison:
+
+The key information discusses how robustness is defined as the model’s ability to maintain stable performance in the presence of noise or small changes in covariates. Key metrics used to assess robustness include ArPPV, Perturbed AUC, and Spearman Rank Correlation. Four models are compared: LightGBM, ScoreCard, XGB_dep2 (maximum AUC from unconstrained XGBoost), and XGB_dep6 (overfitted XGBoost). The performance of these models across training, testing, and out-of-time datasets is summarized in a table, indicating overfitting in the XGB_dep6 model and consistent generalization performance for LightGBM and XGB_dep2.
+
+2. Performance Benchmark from CoE:
+
+A detailed benchmark shows performance for various models across different segments (Established_DDA and No_Low_DDA), considering metrics like KS (Kolmogorov-Smirnov) and AUC (Area Under Curve). The CoE found that LightGBM outperformed G12 and FICO09 in most cases except for WF KGB in the No_Low_DDA segment, where G12 performed better because it used Business DDA data that the new model did not. The conclusion was that the business wanted the No_Low_DDA model to focus solely on consumer bureau data to prescreen prospects.
+
+3. MRM’s Independent Benchmarking:
+
+MRM independently benchmarked its models using XGBoost and GAMI-Tree against the CoE’s LOB model. Both models performed comparably to CoE’s model, as indicated by small, positive lift values in terms of KS and AUC metrics across various segments. MRM concluded that its models perform on par with the CoE’s model.
+
+4. Uncertainty Quantification:
+
+The purpose of uncertainty quantification was to assess whether all significant sources of variation in the data and model were identified. The method involved creating 20 bootstrapped datasets and training LightGBM models on them. The distribution of average and standard deviation of predicted scores was visualized, showing stable performance across models. The conclusion was that the score ranges (max - min) were minimal, with less than 0.03% of observations having a range above 40.
+
+5. Weakness Detection through Residual Analysis:
+
+This process involved using residual models to check if there were signals left in the residuals that could improve model performance or identify poorly performing regions. The two models used were the global offset residual model (using CoE’s model) and a local linear model-based tree (MBT). The analysis showed no significant signals left in the residuals, meaning the model had already accounted for most important variations.
+
+6. Model Explainability Using Shapley Values and FANOVA:
+
+Several techniques were used to explain the model’s decisions:
+
+	•	Centralized P(1) and Accumulated Local Effects (ALE): These methods helped assess the total effect of features on model predictions. FANOVA decomposition was used to isolate the main and interaction effects of the predictors.
+	•	FANOVA: Explained variables’ contributions to predictions by decomposing the contributions into main and interaction effects, using Sobo’s method (chosen by CoE) and Hooker’s method as alternatives. The validators confirmed that FANOVA met the required conditions.
+	•	Shapley Values for Adverse Action Reasons: These were used to calculate which features contributed the most to an applicant’s rejection. The highest contributing features (based on the difference between the rejected applicant’s score and the reference top 1% population) determined the reasons for adverse action.
+
+7. AARC (Adverse Action Reason Codes):
+
+The ECOA Regulation B requires creditors to provide reasons for denying credit applications. The top 1% scoring population is used as a reference to calculate the score differences for rejected applicants. Shapley values are applied to distribute the score differences across features. An example showed how features like revolving credit balances impacted rejection decisions. This process helps provide clarity and fairness in credit decisions.
+
+8. AARC Reference Points Calculation:
+
+The reference points for AARC are calculated based on the concentration of top 1% scorers in different bins using WOE binning. The reference bin, representing the best credit profile, is selected based on the highest concentration of top scorers. The Shapley value is calculated relative to this reference value to explain adverse actions.
+
+9. AARC Suppression:
+
+The AARC logic is designed to suppress certain special codes (like ‘bus7130’ and code 998) from appearing in the top adverse action reason codes. Code ‘bus7130’ relates to the balance-to-credit amount ratio on an open revolving bankcard trade, while code 998 indicates no revolving bankcard trade. The CoE raised a concern about the inaccuracy of adverse action verbiage for business cards, as some issuers do not report business cards to the credit bureau. MRM recommended that the CoE document these suppressions in the Model Development Documentation (MDD).
+
+10. Stress Testing:
+
+Stress testing was conducted to simulate the effect of an economic downturn on the model’s output. Two scenarios were considered: mild adverse and severely adverse. Key features were shifted in the direction of increased risk, and the model’s scores were recalculated. The distribution of scores under stress conditions was compared to the original distribution. The results showed the expected shift towards higher risk under economic stress, but a bimodal shape was observed, which CoE did not explain.
+
+This consolidated output provides an overview of each aspect discussed in this session. Let me know if you need more detailed insights or specific sections!
+
+
+
+
+
+
+
+
+
+
+
+
+
