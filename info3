@@ -69,65 +69,7 @@ def display_table(df):
             var row = document.getElementById('row_' + row_id);
             row.querySelectorAll('td').forEach(function(cell) {
                 cell.classList.add('editing');
-            });
-            document.getElementById('edit_button_' + row_id).style.display = 'none';
-            document.getElementById('save_button_' + row_id).style.display = 'inline';
-            document.getElementById('cancel_button_' + row_id).style.display = 'inline';
-        }
-        
-        // Function to save changes made to a row
-        function saveRow(row_id) {
-            var row = document.getElementById('row_' + row_id);
-            row.querySelectorAll('td').forEach(function(cell) {
-                var input = cell.querySelector('.cell-input');
-                if (input) {
-                    var label = cell.querySelector('.cell-label');
-                    label.textContent = input.value;
-                    cell.classList.remove('editing');
-                }
-            });
-            document.getElementById('edit_button_' + row_id).style.display = 'inline';
-            document.getElementById('save_button_' + row_id).style.display = 'none';
-            document.getElementById('cancel_button_' + row_id).style.display = 'none';
-        }
-        
-        // Function to cancel editing on a row and revert to the original values
-        function cancelRow(row_id) {
-            var row = document.getElementById('row_' + row_id);
-            row.querySelectorAll('td').forEach(function(cell) {
-                var input = cell.querySelector('.cell-input');
-                if (input) {
-                    var label = cell.querySelector('.cell-label');
-                    input.value = label.textContent; // revert to original value
-                    cell.classList.remove('editing');
-                }
-            });
-            document.getElementById('edit_button_' + row_id).style.display = 'inline';
-            document.getElementById('save_button_' + row_id).style.display = 'none';
-            document.getElementById('cancel_button_' + row_id).style.display = 'none';
-        }
-        
-        // Function to gather the table data and send it to Python to update the DataFrame
-        function commitChanges() {
-            var tableData = {};
-            var rows = document.querySelectorAll('tbody tr');
-            rows.forEach(function(row, rowIndex) {
-                row.querySelectorAll('td').forEach(function(cell, colIndex) {
-                    var input = cell.querySelector('.cell-input');
-                    if (input) {
-                        tableData['cell_' + rowIndex + '_' + colIndex] = input.value;
-                    }
-                });
-            });
-            
-            // Send the data back to the kernel for processing
-            var command = "handle_commit(" + JSON.stringify(tableData) + ")";
-            var kernel = Jupyter.notebook.kernel;
-            kernel.execute(command);
-        }
-    </script>
-    """
-    
+            }
     display(HTML(html))
 
 # Function to update the DataFrame from the submitted table data
@@ -149,3 +91,19 @@ def handle_commit(table_data):
 # Load the initial data from the CSV file
 df = load_data()
 display_table(df)
+
+
+
+
+The text describes the concept and calculation of a Centralized Probability Plot for a classification model. Here’s a summary:
+	•	Purpose:
+	•	To show the total effect of model predictions for each binned feature.
+	•	Unlike PDP (Partial Dependence Plot) that averages predictions over the marginal distribution, this plot considers the total prediction for specific population segments.
+	•	Calculation Steps:
+	1.	Binning: Divide the feature into intervals based on Weight of Evidence (WOE) binning.
+	2.	Average Prediction: Calculate the average probability score for each interval.
+	3.	Centering: Subtract the overall sample’s average prediction from each bin’s prediction.
+	•	Use Case:
+	•	Helps in understanding how applicants within specific bins are treated by the model.
+
+Let me know if you need this explained further or if you’d like me to process it into a report or visualization.
