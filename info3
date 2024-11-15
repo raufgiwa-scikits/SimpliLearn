@@ -49,49 +49,58 @@ def display_table(df):
             """
         # Edit, Save, Cancel buttons for each row
         html += f"""
-            <td>
-                <button onclick="editRow('{i}')" id="edit_button_{i}">Edit</button>
-                <button onclick="saveRow('{i}')" id="save_button_{i}" style="display:none;">Save</button>
-                <button onclick="cancelRow('{i}')" id="cancel_button_{i}" style="display:none;">Cancel</button>
-            </td>
-        """
-        html += "</tr>"
-    
-    html += """
-        </tbody>
-    </table>
-    <br>
-    <button onclick="commitChanges()">Commit</button>
-    
-    <script>
-        // Function to enable editing on the specific row
-        function editRow(row_id) {
-            var row = document.getElementById('row_' + row_id);
-            row.querySelectorAll('td').forEach(function(cell) {
-                cell.classList.add('editing');
-            }
-    display(HTML(html))
+        
+Feature selection is a critical step in machine learning and statistical modeling, offering several key advantages:
 
-# Function to update the DataFrame from the submitted table data
-def handle_commit(table_data):
-    global df  # Reference the global DataFrame
-    
-    for cell, value in table_data.items():
-        parts = cell.split('_')
-        row_idx = int(parts[1])
-        col_idx = int(parts[2])
-        col_name = df.columns[col_idx]
-        df.at[row_idx, col_name] = value
-    
-    # Save the updated dataframe back to CSV
-    save_data(df)
-    print("CSV file updated successfully!")
-    display_table(df)  # Refresh the table
+1. Improved Model Performance
 
-# Load the initial data from the CSV file
-df = load_data()
-display_table(df)
+	•	Reduces Overfitting: Selecting only relevant features helps avoid overfitting by minimizing noise in the data.
+	•	Increases Accuracy: By removing irrelevant or redundant features, the model focuses on the most impactful variables, enhancing predictive accuracy.
 
+2. Reduced Model Complexity
+
+	•	Simpler Models: Feature selection results in less complex models that are easier to interpret and deploy.
+	•	Faster Computation: Fewer features reduce computational costs, speeding up training and prediction times.
+
+3. Enhanced Interpretability
+
+	•	Models with fewer features are easier to interpret, making it simpler to understand the relationships between predictors and outcomes.
+	•	It helps explain predictions to stakeholders, particularly in regulated industries like finance and healthcare.
+
+4. Better Generalization
+
+	•	By focusing on the most relevant features, the model generalizes better to unseen data, improving performance on test or production datasets.
+
+5. Reduced Data Storage and Dimensionality
+
+	•	Fewer features reduce the dimensionality of the dataset, saving storage space and making the dataset more manageable.
+	•	Lower dimensionality also addresses the “curse of dimensionality,” where high-dimensional data can degrade model performance.
+
+6. Improved Data Collection and Efficiency
+
+	•	Identifying key features can help prioritize data collection efforts, focusing on collecting only relevant data for future projects or experiments.
+	•	This can reduce costs associated with data acquisition.
+
+7. Noise Reduction
+
+	•	Eliminating irrelevant or noisy features improves the signal-to-noise ratio, ensuring that the model focuses on meaningful patterns in the data.
+
+8. Compliance with Regulatory Requirements
+
+	•	In domains such as finance and healthcare, simpler models with fewer features are often required to comply with regulations demanding model transparency and explainability.
+
+9. Facilitates Model Testing and Iteration
+
+	•	By reducing the number of features, it becomes easier to test different algorithms and configurations during model development.
+
+Common Feature Selection Techniques:
+
+	•	Filter Methods: Use statistical measures like correlation or chi-square to rank features (e.g., mutual information, ANOVA).
+	•	Wrapper Methods: Use a machine learning model to evaluate subsets of features (e.g., recursive feature elimination).
+	•	Embedded Methods: Perform feature selection during model training (e.g., LASSO, decision trees).
+	•	Dimensionality Reduction: Techniques like PCA or t-SNE can reduce features while preserving variability.
+
+Would you like a deeper dive into specific feature selection techniques or their applications in your projects?
 
 
 
