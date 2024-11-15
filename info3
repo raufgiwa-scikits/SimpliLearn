@@ -2,6 +2,29 @@ import pandas as pd
 from IPython.display import display, HTML, Javascript
 import os
 
+
+The image appears to describe a methodology for using the Weight of Evidence (WOE) in variable transformation, commonly applied in logistic regression models or credit scoring. The WOE formula is given as:
+
+￼
+
+Here are the key points extracted from the text:
+	1.	Purpose of WOE: The WOE transformation is applied to create derived variables from the study population. These variables help select significant predictors for models.
+	2.	Binning:
+	•	Each variable is divided into bins, and a WOE value is assigned to each.
+	•	Special values are grouped into their bin to avoid applicant bias based on certain characteristics like gaming.
+	3.	Algorithm for Binning:
+	•	Bins are tested against adjacent bins for statistically significant differences in the target rate.
+	•	If no significant difference is found, the bins are merged.
+	4.	Bin Constraints:
+	•	The number of bins is typically limited to a maximum of 10, depending on the variable’s distinct values.
+	5.	Usage in Logistic Regression:
+	•	The WOE-transformed variables are input into the logistic regression model to estimate probabilities or risks.
+	6.	Table Overview:
+	•	The table shows WOE values calculated for bins, alongside metrics like event count, non-event count, and Information Value (IV).
+
+If you’d like, I can help explain this concept further, assist in replicating this process, or provide an example. Let me know how you’d like to proceed!
+
+
 # Define the path to your CSV file
 CSV_FILE = 'data.csv'
 
