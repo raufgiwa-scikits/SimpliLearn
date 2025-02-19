@@ -1,1 +1,13 @@
+Scorecard models, widely used in credit risk, fraud detection, and other financial applications, have several disadvantages:
+	1.	Limited Predictive Power – Scorecards are typically linear models and may not capture complex, nonlinear relationships in the data as well as machine learning models.
+	2.	Manual Feature Selection – The process of selecting and binning variables requires expert judgment and can introduce biases or lead to suboptimal performance.
+	3.	Rigid Structure – Since scorecard models use pre-defined bins and weightings, they may not adapt well to changing data patterns or new risk factors.
+	4.	Difficult Handling of Interactions – Scorecards do not naturally capture interactions between variables unless explicitly modeled, which can lead to an oversimplified risk assessment.
+	5.	Time-Consuming Development – The development process involves extensive data analysis, binning, weight-of-evidence (WOE) transformation, and validation, making it labor-intensive.
+	6.	Data Drift Sensitivity – As economic conditions or customer behaviors change, the scorecard model may become outdated, requiring frequent recalibration.
+	7.	Lack of Granularity – Binning variables into discrete categories may lead to a loss of information, potentially reducing model accuracy.
+	8.	Regulatory Scrutiny – While scorecards are often more interpretable than complex models, they still require rigorous documentation and validation to satisfy regulatory requirements.
+	9.	Subjective Weight Assignments – Although scorecards use statistical techniques like logistic regression, the binning process and cut-off selections often involve subjective decision-making.
+	10.	Scalability Challenges – While effective for structured credit decisions, scorecards may not scale efficiently to large-scale, high-dimensional datasets compared to advanced machine learning techniques.
 
+Would you like a comparison with other modeling techniques, such as machine learning models?
