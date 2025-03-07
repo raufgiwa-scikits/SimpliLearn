@@ -1,0 +1,21 @@
+import subprocess
+import json
+
+mojo_model_path = "path/to/your_mojo.zip"
+input_csv = "input_data.csv"  # Prepare CSV file with test data
+output_csv = "predictions.csv"
+
+# Run MOJO Scoring JAR
+cmd = [
+    "java", "-cp", "h2o-genmodel.jar",
+    "hex.genmodel.tools.PredictCsv",
+    "--mojo", mojo_model_path,
+    "--input", input_csv,
+    "--output", output_csv
+]
+
+subprocess.run(cmd)
+
+# Read the Predictions
+with open(output_csv, "r") as f:
+    print(f.read())
