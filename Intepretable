@@ -1,73 +1,38 @@
-def weighted_median(data, weights):
+def weighted_quantile(data, weights, quantile):
     """
-    Compute the weighted median of data.
+    Compute the weighted quantile of data.
 
     Parameters:
         data (array-like): Data values.
         weights (array-like): Corresponding weights.
+        quantile (float or array-like): Quantile(s) to compute, between 0 and 1.
 
     Returns:
-        float: The weighted median.
+        float or np.ndarray: The computed weighted quantile value(s).
     """
     data = np.asarray(data)
     weights = np.asarray(weights)
+    quantile = np.atleast_1d(quantile)
 
     if len(data) != len(weights):
         raise ValueError("Data and weights must be the same length.")
 
-    # Sort data and weights based on data values
-    sorted_idx = np.argsort(data)
-    sorted_data = data[sorted_idx]
-    sorted_weights = weights[sorted_idx]
+    if np.any((quantile < 0) | (quantile > 1)):
+        raise ValueError("Quantile values must be between 0 and 1.")
 
-    # Compute cumulative sum of weights
+    # Sort data and corresponding weights
+    sorter = np.argsort(data)
+    sorted_data = data[sorter]
+    sorted_weights = weights[sorter]
+
+    # Compute cumulative weights normalized to sum to 1
     cum_weights = np.cumsum(sorted_weights)
-    total_weight = np.sum(sorted_weights)
+    normalized_cum_weights = cum_weights / cum_weights[-1]
 
-    # Find the index where cumulative weight exceeds 50% of total
-    median_idx = np.searchsorted(cum_weights, total_weight / 2)
+    # Compute weighted quantiles
+    quantile_values = np.interp(quantile, normalized_cum_weights, sorted_data)
 
-    return sorted_data[median_idx]
-
-
-def weighted_mean(data, weights):
-    """
-    Compute the weighted mean of data.
-
-    Parameters:
-        data (array-like): Data values.
-        weights (array-like): Corresponding weights.
-
-    Returns:
-        float: The weighted mean.
-    """
-    data = np.asarray(data)
-    weights = np.asarray(weights)
-
-    if len(data) != len(weights):
-        raise ValueError("Data and weights must be the same length.")
-
-    return np.sum(data * weights) / np.sum(weights)
-
-def weighted_variance(data, weights, ddof=0):
-    """
-    Compute the weighted variance of data.
-
-    Parameters:
-        data (array-like): Data values.
-        weights (array-like): Corresponding weights.
-        ddof (int): Delta degrees of freedom (0 for population, 1 for sample).
-
-    Returns:
-        float: The weighted variance.
-    """
-    data = np.asarray(data)
-    weights = np.asarray(weights)
-
-    if len(data) != len(weights):
-        raise ValueError("Data and weights must be the same length.")
-
-    weighted_mean = np.sum(weights * data) / np.sum(weights)
-    variance = np.sum(weights * (data - weighted_mean)**2) / (np.sum(weights) - ddof)
-
-    return variance
+    # If single quantile, return scalar
+    if quantile_values.size == 1:
+        return quantile_values[0]
+    return quantile_values
