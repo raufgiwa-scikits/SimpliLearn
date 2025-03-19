@@ -1,251 +1,30 @@
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras.layers import Input, Dense, LSTM, Embedding, Flatten, Add, Concatenate
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-import matplotlib.pyplot as plt
+def weighted_median(data, weights):
+    """
+    Compute the weighted median of data.
 
-# Generate synthetic data
-def generate_data(num_samples, time_steps, num_time_features, num_non_time_features, num_categories):
-    time_series_data = np.random.rand(num_samples, time_steps, num_time_features)  # Time-series data
-    non_time_series_data = np.random.rand(num_samples, num_non_time_features)      # Non-time-series data
-    categorical_data = np.random.randint(0, num_categories, size=(num_samples, 1))  # Categorical data
-    targets = np.random.randint(0, 2, size=(num_samples, 1))                       # Binary targets
-    return time_series_data, non_time_series_data, categorical_data, targets
+    Parameters:
+        data (array-like): Data values.
+        weights (array-like): Corresponding weights.
 
-# Parameters
-num_samples = 1000
-time_steps = 10
-num_time_features = 3
-num_non_time_features = 5
-num_categories = 4  # Number of unique categories for the categorical feature
+    Returns:
+        float: The weighted median.
+    """
+    data = np.asarray(data)
+    weights = np.asarray(weights)
 
-# Generate data
-time_series_data, non_time_series_data, categorical_data, targets = generate_data(
-    num_samples, time_steps, num_time_features, num_non_time_features, num_categories
-)
+    if len(data) != len(weights):
+        raise ValueError("Data and weights must be the same length.")
 
-# Split data into train and test sets
-X_time_train, X_time_test, X_non_time_train, X_non_time_test, X_cat_train, X_cat_test, y_train, y_test = train_test_split(
-    time_series_data, non_time_series_data, categorical_data, targets, test_size=0.2, random_state=42
-)
+    # Sort data and weights based on data values
+    sorted_idx = np.argsort(data)
+    sorted_data = data[sorted_idx]
+    sorted_weights = weights[sorted_idx]
 
-# Standardize non-time-series data
-scaler = StandardScaler()
-X_non_time_train = scaler.fit_transform(X_non_time_train)
-X_non_time_test = scaler.transform(X_non_time_test)
+    # Compute cumulative sum of weights
+    cum_weights = np.cumsum(sorted_weights)
+    total_weight = np.sum(sorted_weights)
 
-# One-hot encode categorical data
-encoder = OneHotEncoder(sparse=False)
-X_cat_train = encoder.fit_transform(X_cat_train)
-X_cat_test = encoder.transform(X_cat_test)
+    # Find the index where cumulative weight exceeds 50% of total
+    median_idx = np.searchsorted(cum_weights, total_weight / 2)
 
-# Define single-effect contribution model
-def build_single_effect_branch(input_shape, feature_type, num_features, embedding_size=None):
-    inputs = Input(shape=input_shape, name=f"{feature_type}_Input")
-    outputs = []
-    if feature_type == "categorical":
-        # Handle categorical data with embedding
-        embedding = Embedding(input_dim=num_features, output_dim=embedding_size)(inputs)
-        flat = Flatten()(embedding)
-        x = Dense(16, activation='relu')(flat)
-        outputs.append(Dense(1, activation='linear')(x))
-    else:
-        for i in range(num_features):
-            if feature_type == "time":
-                feature = inputs[:, :, i:i+1]
-                x = LSTM(16, activation='tanh', return_sequences=False)(feature)
-            else:
-                feature = inputs[:, i:i+1]
-                x = Dense(16, activation='relu')(feature)
-            x = Dense(1, activation='linear')(x)
-            outputs.append(x)
-    output_sum = Add()(outputs)
-    return inputs, outputs, output_sum
-
-# Define pairwise-effect contribution model
-def build_pairwise_effect_branch(input_shape, feature_type, num_features, embedding_size=None):
-    inputs = Input(shape=input_shape, name=f"{feature_type}_Input")
-    outputs = []
-    if feature_type == "categorical":
-        # Handle categorical data with embedding
-        embedding = Embedding(input_dim=num_features, output_dim=embedding_size)(inputs)
-        flat = Flatten()(embedding)
-        x = Dense(16, activation='relu')(flat)
-        outputs.append(Dense(1, activation='linear')(x))
-    else:
-        for i in range(num_features):
-            for j in range(i + 1, num_features):
-                if feature_type == "time":
-                    pair = Concatenate(axis=-1)([inputs[:, :, i:i+1], inputs[:, :, j:j+1]])
-                    x = LSTM(16, activation='tanh', return_sequences=False)(pair)
-                else:
-                    pair = Concatenate(axis=-1)([inputs[:, i:i+1], inputs[:, j:j+1]])
-                    x = Dense(16, activation='relu')(pair)
-                x = Dense(1, activation='linear')(x)
-                outputs.append(x)
-    output_sum = Add()(outputs)
-    return inputs, outputs, output_sum
-
-# Build single and pairwise models for each data type
-time_single_input, time_single_outputs, time_single_sum = build_single_effect_branch(
-    (time_steps, num_time_features), "time", num_time_features
-)
-non_time_single_input, non_time_single_outputs, non_time_single_sum = build_single_effect_branch(
-    (num_non_time_features,), "non_time", num_non_time_features
-)
-cat_single_input, cat_single_outputs, cat_single_sum = build_single_effect_branch(
-    (1,), "categorical", num_categories, embedding_size=8
-)
-
-time_pairwise_input, time_pairwise_outputs, time_pairwise_sum = build_pairwise_effect_branch(
-    (time_steps, num_time_features), "time", num_time_features
-)
-non_time_pairwise_input, non_time_pairwise_outputs, non_time_pairwise_sum = build_pairwise_effect_branch(
-    (num_non_time_features,), "non_time", num_non_time_features
-)
-cat_pairwise_input, cat_pairwise_outputs, cat_pairwise_sum = build_pairwise_effect_branch(
-    (1,), "categorical", num_categories, embedding_size=8
-)
-
-# Combine single and pairwise outputs
-final_output = Add()([
-    time_single_sum, non_time_single_sum, cat_single_sum,
-    time_pairwise_sum, non_time_pairwise_sum, cat_pairwise_sum
-])
-final_output = Dense(1, activation='sigmoid', name="Output")(final_output)
-
-# Create the model
-model = Model(
-    inputs=[time_single_input, non_time_single_input, cat_single_input,
-            time_pairwise_input, non_time_pairwise_input, cat_pairwise_input],
-    outputs=final_output
-)
-
-# Optimizer
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-
-# Training functions
-def train_single_effect(time_data, non_time_data, cat_data, labels, optimizer, epochs=10, batch_size=32):
-    for epoch in range(epochs):
-        for i in range(0, len(time_data), batch_size):
-            time_batch = time_data[i:i+batch_size]
-            non_time_batch = non_time_data[i:i+batch_size]
-            cat_batch = cat_data[i:i+batch_size]
-            y_batch = labels[i:i+batch_size]
-            with tf.GradientTape() as tape:
-                y_pred = model([time_batch, non_time_batch, cat_batch, time_batch, non_time_batch, cat_batch], training=True)
-                loss = tf.reduce_mean(tf.keras.losses.binary_crossentropy(y_batch, y_pred))
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        print(f"Single Effect Epoch {epoch+1}/{epochs} Loss: {loss.numpy()}")
-
-def train_pairwise_effect(...):  
-
-
-Continuing with the **pairwise effect training** and subsequent fine-tuning:
-
----
-
-### Python Script (Continuation)
-
-```python
-def train_pairwise_effect(time_data, non_time_data, cat_data, labels, optimizer, epochs=10, batch_size=32):
-    for epoch in range(epochs):
-        for i in range(0, len(time_data), batch_size):
-            time_batch = time_data[i:i + batch_size]
-            non_time_batch = non_time_data[i:i + batch_size]
-            cat_batch = cat_data[i:i + batch_size]
-            y_batch = labels[i:i + batch_size]
-            with tf.GradientTape() as tape:
-                y_pred = model([time_batch, non_time_batch, cat_batch, time_batch, non_time_batch, cat_batch], training=True)
-                loss = tf.reduce_mean(tf.keras.losses.binary_crossentropy(y_batch, y_pred))
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        print(f"Pairwise Effect Epoch {epoch+1}/{epochs} Loss: {loss.numpy()}")
-
-# Fine-tuning single and pairwise effects
-def fine_tune_model(time_data, non_time_data, cat_data, labels, optimizer, epochs=10, batch_size=32):
-    for epoch in range(epochs):
-        for i in range(0, len(time_data), batch_size):
-            time_batch = time_data[i:i + batch_size]
-            non_time_batch = non_time_data[i:i + batch_size]
-            cat_batch = cat_data[i:i + batch_size]
-            y_batch = labels[i:i + batch_size]
-            with tf.GradientTape() as tape:
-                y_pred = model([time_batch, non_time_batch, cat_batch, time_batch, non_time_batch, cat_batch], training=True)
-                loss = tf.reduce_mean(tf.keras.losses.binary_crossentropy(y_batch, y_pred))
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        print(f"Fine-Tuning Epoch {epoch+1}/{epochs} Loss: {loss.numpy()}")
-
-# Feature contributions for single and pairwise effects
-def calculate_feature_contributions(time_data, non_time_data, cat_data):
-    time_single_contributions = [output(time_data).numpy() for output in time_single_outputs]
-    non_time_single_contributions = [output(non_time_data).numpy() for output in non_time_single_outputs]
-    cat_single_contributions = [output(cat_data).numpy() for output in cat_single_outputs]
-    
-    time_pairwise_contributions = [output(time_data).numpy() for output in time_pairwise_outputs]
-    non_time_pairwise_contributions = [output(non_time_data).numpy() for output in non_time_pairwise_outputs]
-    cat_pairwise_contributions = [output(cat_data).numpy() for output in cat_pairwise_outputs]
-    
-    return {
-        "time_single": time_single_contributions,
-        "non_time_single": non_time_single_contributions,
-        "cat_single": cat_single_contributions,
-        "time_pairwise": time_pairwise_contributions,
-        "non_time_pairwise": non_time_pairwise_contributions,
-        "cat_pairwise": cat_pairwise_contributions
-    }
-
-# Feature importance by averaging absolute contributions
-def calculate_feature_importance(contributions):
-    importance = {key: np.mean(np.abs(np.array(val)), axis=0) for key, val in contributions.items()}
-    return importance
-
-# Prediction breakdown for interpretability and explainability
-def prediction_breakdown(time_data, non_time_data, cat_data, sample_index):
-    contributions = calculate_feature_contributions(time_data, non_time_data, cat_data)
-    breakdown = {key: val[sample_index] for key, val in contributions.items()}
-    return breakdown
-
-# Visualization for interpretability
-def plot_feature_importance(feature_importance, title):
-    for key, importance in feature_importance.items():
-        plt.figure()
-        plt.bar(range(len(importance)), importance)
-        plt.title(f"{title}: {key}")
-        plt.xlabel("Feature Index")
-        plt.ylabel("Importance")
-        plt.show()
-
-# Train the model
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-
-print("Training Single Effects...")
-train_single_effect(X_time_train, X_non_time_train, X_cat_train, y_train, optimizer, epochs=5)
-
-print("Training Pairwise Effects...")
-train_pairwise_effect(X_time_train, X_non_time_train, X_cat_train, y_train, optimizer, epochs=5)
-
-print("Fine-Tuning...")
-fine_tune_model(X_time_train, X_non_time_train, X_cat_train, y_train, optimizer, epochs=5)
-
-# Evaluate feature contributions and importance
-contributions = calculate_feature_contributions(X_time_test, X_non_time_test, X_cat_test)
-importance = calculate_feature_importance(contributions)
-
-print("Feature Importance:")
-for key, val in importance.items():
-    print(f"{key}: {val}")
-
-# Plot feature importance
-plot_feature_importance(importance, "Feature Importance")
-
-# Prediction breakdown for a sample
-sample_index = 0
-breakdown = prediction_breakdown(X_time_test, X_non_time_test, X_cat_test, sample_index)
-
-print(f"Prediction Breakdown for Sample {sample_index}:")
-for key, val in breakdown.items():
-    print(f"{key}: {val}")
+    return sorted_data[median_idx]
