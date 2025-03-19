@@ -28,3 +28,46 @@ def weighted_median(data, weights):
     median_idx = np.searchsorted(cum_weights, total_weight / 2)
 
     return sorted_data[median_idx]
+
+
+def weighted_mean(data, weights):
+    """
+    Compute the weighted mean of data.
+
+    Parameters:
+        data (array-like): Data values.
+        weights (array-like): Corresponding weights.
+
+    Returns:
+        float: The weighted mean.
+    """
+    data = np.asarray(data)
+    weights = np.asarray(weights)
+
+    if len(data) != len(weights):
+        raise ValueError("Data and weights must be the same length.")
+
+    return np.sum(data * weights) / np.sum(weights)
+
+def weighted_variance(data, weights, ddof=0):
+    """
+    Compute the weighted variance of data.
+
+    Parameters:
+        data (array-like): Data values.
+        weights (array-like): Corresponding weights.
+        ddof (int): Delta degrees of freedom (0 for population, 1 for sample).
+
+    Returns:
+        float: The weighted variance.
+    """
+    data = np.asarray(data)
+    weights = np.asarray(weights)
+
+    if len(data) != len(weights):
+        raise ValueError("Data and weights must be the same length.")
+
+    weighted_mean = np.sum(weights * data) / np.sum(weights)
+    variance = np.sum(weights * (data - weighted_mean)**2) / (np.sum(weights) - ddof)
+
+    return variance
