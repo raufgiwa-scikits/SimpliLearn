@@ -1,38 +1,32 @@
-def weighted_quantile(data, weights, quantile):
-    """
-    Compute the weighted quantile of data.
+from IPython.display import display, HTML
 
-    Parameters:
-        data (array-like): Data values.
-        weights (array-like): Corresponding weights.
-        quantile (float or array-like): Quantile(s) to compute, between 0 and 1.
+display(HTML("""
+<h2>📚 Table of Contents</h2>
+<ul id="toc"></ul>
 
-    Returns:
-        float or np.ndarray: The computed weighted quantile value(s).
-    """
-    data = np.asarray(data)
-    weights = np.asarray(weights)
-    quantile = np.atleast_1d(quantile)
+<script>
+(function generateTOC() {
+    const toc = document.getElementById("toc");
+    const headers = document.querySelectorAll("h1, h2, h3");
 
-    if len(data) != len(weights):
-        raise ValueError("Data and weights must be the same length.")
+    headers.forEach((header, index) => {
+        // Assign unique IDs to headers if they don't have one
+        if (!header.id) {
+            header.id = "toc-header-" + index;
+        }
 
-    if np.any((quantile < 0) | (quantile > 1)):
-        raise ValueError("Quantile values must be between 0 and 1.")
+        // Create a clickable link
+        const li = document.createElement("li");
+        li.style.marginLeft = (parseInt(header.tagName[1]) - 1) * 20 + "px";
 
-    # Sort data and corresponding weights
-    sorter = np.argsort(data)
-    sorted_data = data[sorter]
-    sorted_weights = weights[sorter]
+        const a = document.createElement("a");
+        a.href = "#" + header.id;
+        a.textContent = header.textContent;
 
-    # Compute cumulative weights normalized to sum to 1
-    cum_weights = np.cumsum(sorted_weights)
-    normalized_cum_weights = cum_weights / cum_weights[-1]
+        li.appendChild(a);
+        toc.appendChild(li);
+    });
 
-    # Compute weighted quantiles
-    quantile_values = np.interp(quantile, normalized_cum_weights, sorted_data)
-
-    # If single quantile, return scalar
-    if quantile_values.size == 1:
-        return quantile_values[0]
-    return quantile_values
+})();
+</script>
+""")
