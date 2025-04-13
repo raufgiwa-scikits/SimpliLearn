@@ -1,55 +1,46 @@
-import pandas as pd
-import numpy as np
-from sklearn.metrics import (
-    roc_auc_score,
-    precision_recall_curve,
-    roc_curve,
-    auc
-)
+Table 5.1: Score Distribution for Combined In-Time and Out-of-Time Data Period: Mar – Jul, 2024
 
-def evaluate_model_metrics_weighted(df):
-    y_true = df['true']
-    y_score = df['score']
-    weights = df['weight']
+Introduction
+To further investigate the distributional behavior of model scores across various datasets, the MVO generated Table 5.1. This table is a summary of score distributions segmented by training, validation, out-of-time, in-time, and overall datasets.
 
-    # ROC AUC (weighted)
-    roc_auc = roc_auc_score(y_true, y_score, sample_weight=weights)
+Purpose of Table 5.1
+Table 5.1 is a tabular representation of fraud rates, total amounts, and statistical summaries (median and standard deviation) of model scores for both fraudulent and non-fraudulent accounts. It offers insight into the concentration, variability, and effectiveness of the score outputs across distinct dataset partitions.
 
-    # Precision-Recall AUC (weighted)
-    precision, recall, thresholds_pr = precision_recall_curve(y_true, y_score, sample_weight=weights)
-    auc_pr = auc(recall, precision)
+Technical and Statistical Review
 
-    # ROC Curve and KS (weighted)
-    fpr, tpr, thresholds_roc = roc_curve(y_true, y_score, sample_weight=weights)
-    ks_statistic = max(tpr - fpr)
+The proportion of fraud is markedly low across all partitions, with the highest observed in the in-time set (0.0284) and the lowest in the validation set (0.0085), indicating the expected rarity of ATO fraud.
 
-    # Best threshold using Youden's J (tpr - fpr)
-    j_scores = tpr - fpr
-    best_index = np.argmax(j_scores)
-    best_threshold = thresholds_roc[best_index]
+The median score for fraudulent accounts consistently surpasses that of non-fraudulent accounts. For example, in the training set, the median fraud score is 0.1031, while the non-fraud is 0.0093—indicating strong model separation.
 
-    # Detection Rate: weighted TPR at best threshold
-    y_pred = (y_score >= best_threshold).astype(int)
-    true_positive_weight = weights[(y_pred == 1) & (y_true == 1)].sum()
-    total_positive_weight = weights[y_true == 1].sum()
-    detection_rate = true_positive_weight / total_positive_weight if total_positive_weight > 0 else 0
+Score standard deviations for fraud are considerably higher than for non-fraud across all splits (e.g., Train: 0.3115 vs 0.0093), suggesting greater uncertainty or variability in how fraud cases are scored.
 
-    # Log-odds (element-wise on score)
-    eps = 1e-10  # To avoid division by zero
-    odds = (y_score + eps) / (1 - y_score + eps)
-    log_odds = np.log(odds)
+The validation and out-of-time sets maintain similar statistical properties, hinting at temporal score stability.
 
-    # Return results
-    return {
-        'roc_auc': roc_auc,
-        'auc_pr': auc_pr,
-        'ks_statistic': ks_statistic,
-        'detection_rate': detection_rate,
-        'best_threshold': best_threshold,
-        'log_odds': log_odds  # This is a Series, can be added to the df if needed
-    }
+The 'All' row confirms overall score behavior and validates that the model maintains separation between fraud and non-fraud across the full data scope.
 
-# Example usage:
-# df = pd.DataFrame({'true': [0,1,0,1], 'score': [0.2,0.8,0.3,0.9], 'weight': [1,2,1,3]})
-# results = evaluate_model_metrics_weighted(df)
-# print(results)
+Insights and Inference
+
+A strong separation is observed in score medians between fraud and non-fraud cases, a positive indicator of discriminatory power.
+
+The increase in standard deviation among fraudulent samples reflects diversity in detected fraudulent behavior patterns, which might merit further segmentation or clustering for profiling.
+
+The in-time set’s slightly higher fraud rate suggests potential model overfitting to recent patterns; however, this could also reflect an actual increase in fraud incidence during that period.
+
+Potential Problems and Risks
+
+The very low fraud rates across sets could challenge model calibration, especially in real-time detection, leading to false positives or overlooked fraud.
+
+The high standard deviation in fraud scores may pose consistency issues in ranking and decision-making, especially if the model is sensitive to outlier behavior.
+
+There’s a slight difference in score medians and deviations between train and OOT sets—warranting further drift analysis to ensure long-term model stability.
+
+Mitigation Strategies
+
+Employ post-training calibration (e.g., Platt scaling or isotonic regression) to ensure better probability estimates.
+
+Implement score monitoring over time to detect drift and reassess thresholds.
+
+Use stratified retraining and frequent sampling updates to ensure better fraud representation.
+
+Establish cutoffs based on business cost-benefit tradeoffs to manage false positives while capturing fraud cases.
+
