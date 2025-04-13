@@ -32,3 +32,8 @@ def map_function(text1,mapping,n=2):
     for i in range(n):
         text_out=mapit(copy.deepcopy(text_out))
     return text_out
+
+bigram1,bigram2=make_scrambler(text1)
+text2=map_function(text1,mapping_forward)
+text3=map_function(text2,mapping_reverse)
+print(f"text2={[text2]}")
