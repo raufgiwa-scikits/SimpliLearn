@@ -1,25 +1,47 @@
 import numpy as np
+def calculate_fpr_tpr_precision_recall_weighted(y_true, y_scores, weights=None):
+    """
+    Compute weighted FPR, TPR, Precision, and Recall at all unique thresholds.
 
-def calculate_fpr_tpr_precision_recall(y_true, y_scores):
+    Parameters:
+    - y_true (list or np.array): Binary ground truth labels (0 or 1)
+    - y_scores (list or np.array): Predicted scores/probabilities
+    - weights (list or np.array): Sample weights (same length as y_true)
+
+    Returns:
+    - thresholds: List of thresholds
+    - fpr: List of false positive rates (weighted)
+    - tpr: List of true positive rates (weighted)
+    - precision: List of precision values (weighted)
+    - recall: List of recall values (weighted)
+    """
     y_true = np.array(y_true)
     y_scores = np.array(y_scores)
+    weights = np.ones_like(y_true) if weights is None else np.array(weights)
+
+    # Sort by score descending
+    sorted_indices = np.argsort(-y_scores)
+    y_true = y_true[sorted_indices]
+    y_scores = y_scores[sorted_indices]
+    weights = weights[sorted_indices]
+
     thresholds = np.sort(np.unique(y_scores))[::-1]
+
+    total_pos_weight = np.sum(weights[y_true == 1])
+    total_neg_weight = np.sum(weights[y_true == 0])
 
     fpr_list = []
     tpr_list = []
     precision_list = []
     recall_list = []
 
-    P = np.sum(y_true)
-    N = len(y_true) - P
-
     for thresh in thresholds:
-        y_pred = (y_scores >= thresh).astype(int)
+        pred = y_scores >= thresh
 
-        TP = np.sum((y_pred == 1) & (y_true == 1))
-        FP = np.sum((y_pred == 1) & (y_true == 0))
-        FN = np.sum((y_pred == 0) & (y_true == 1))
-        TN = np.sum((y_pred == 0) & (y_true == 0))
+        TP = np.sum(weights[(pred == 1) & (y_true == 1)])
+        FP = np.sum(weights[(pred == 1) & (y_true == 0)])
+        FN = np.sum(weights[(pred == 0) & (y_true == 1)])
+        TN = np.sum(weights[(pred == 0) & (y_true == 0)])
 
         TPR = TP / (TP + FN) if (TP + FN) > 0 else 0
         FPR = FP / (FP + TN) if (FP + TN) > 0 else 0
@@ -32,7 +54,6 @@ def calculate_fpr_tpr_precision_recall(y_true, y_scores):
         recall_list.append(Recall)
 
     return thresholds, fpr_list, tpr_list, precision_list, recall_list
-
 
 def compute_metrics_from_curve(y_true, y_scores):
     thresholds, fpr, tpr, precision, recall = calculate_fpr_tpr_precision_recall(y_true, y_scores)
