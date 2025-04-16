@@ -1,80 +1,115 @@
 import numpy as np
 
-def calculate_fpr_tpr_precision_recall_weighted(y_true, y_scores, weights=None):
+def calculate_fpr_tpr_precision_recall_weighted(y_true, y_score, weight):
     y_true = np.array(y_true)
-    y_scores = np.array(y_scores)
-    weights = np.ones_like(y_true) if weights is None else np.array(weights)
+    y_score = np.array(y_score)
+    weight = np.array(weight)
 
-    # Sort by predicted scores descending
-    sorted_indices = np.argsort(-y_scores)
-    y_true = y_true[sorted_indices]
-    y_scores = y_scores[sorted_indices]
-    weights = weights[sorted_indices]
+    # Sort descending by score
+    sorted_idx = np.argsort(-y_score)
+    y_true = y_true[sorted_idx]
+    y_score = y_score[sorted_idx]
+    weight = weight[sorted_idx]
 
-    thresholds = np.sort(np.unique(y_scores))[::-1]
+    thresholds = np.unique(y_score)[::-1]
 
-    total_pos_weight = np.sum(weights[y_true == 1])
-    total_neg_weight = np.sum(weights[y_true == 0])
+    total_pos = np.sum(weight[y_true == 1])
+    total_neg = np.sum(weight[y_true == 0])
 
-    fpr_list = []
-    tpr_list = []
-    precision_list = []
-    recall_list = []
-    threshold_list = []
+    tpr_list, fpr_list, precision_list, recall_list = [], [], [], []
 
     for thresh in thresholds:
-        pred = y_scores >= thresh
+        pred = (y_score >= thresh).astype(int)
 
-        TP = np.sum(weights[(pred == 1) & (y_true == 1)])
-        FP = np.sum(weights[(pred == 1) & (y_true == 0)])
-        FN = np.sum(weights[(pred == 0) & (y_true == 1)])
-        TN = np.sum(weights[(pred == 0) & (y_true == 0)])
+        TP = np.sum(weight[(pred == 1) & (y_true == 1)])
+        FP = np.sum(weight[(pred == 1) & (y_true == 0)])
+        FN = np.sum(weight[(pred == 0) & (y_true == 1)])
+        TN = np.sum(weight[(pred == 0) & (y_true == 0)])
 
         TPR = TP / (TP + FN) if (TP + FN) > 0 else 0
         FPR = FP / (FP + TN) if (FP + TN) > 0 else 0
-        Precision = TP / (TP + FP) if (TP + FP) > 0 else 1
+        Precision = TP / (TP + FP) if (TP + FP) > 0 else 1.0
         Recall = TPR
 
-        fpr_list.append(FPR)
         tpr_list.append(TPR)
+        fpr_list.append(FPR)
         precision_list.append(Precision)
         recall_list.append(Recall)
-        threshold_list.append(thresh)
 
-    return threshold_list, fpr_list, tpr_list, precision_list, recall_list
-def compute_weighted_metrics(y_true, y_scores, weights=None):
+    return np.array(thresholds), np.array(fpr_list), np.array(tpr_list), np.array(precision_list), np.array(recall_list)
+
+
+
+def compute_all_metrics(y_true, y_score, weight):
     thresholds, fpr, tpr, precision, recall = calculate_fpr_tpr_precision_recall_weighted(
-        y_true, y_scores, weights)
+        y_true, y_score, weight)
 
-    # KS Statistic = max(TPR - FPR)
-    ks_vals = np.abs(np.array(tpr) - np.array(fpr))
-    ks_stat = np.max(ks_vals)
-    best_thresh_idx = np.argmax(ks_vals)
+    # KS Statistic and Best Threshold
+    ks_values = np.abs(tpr - fpr)
+    ks_stat = np.max(ks_values)
+    best_thresh_idx = np.argmax(ks_values)
     best_thresh = thresholds[best_thresh_idx]
 
-    # ROC AUC using trapezoidal integration over FPR vs TPR
-    roc_auc = 0.0
-    for i in range(1, len(fpr)):
-        roc_auc += (fpr[i] - fpr[i-1]) * (tpr[i] + tpr[i-1]) / 2.0
+    # ROC AUC (trapezoidal rule)
+    roc_auc = np.trapz(tpr, fpr)
 
-    # AUC PR (area under precision-recall curve)
-    recall_sorted, precision_sorted = zip(*sorted(zip(recall, precision)))
-    auc_pr = 0.0
-    for i in range(1, len(recall_sorted)):
-        auc_pr += (recall_sorted[i] - recall_sorted[i-1]) * (precision_sorted[i] + precision_sorted[i-1]) / 2.0
+    # AUC PR (trapezoidal rule)
+    sorted_idx = np.argsort(recall)
+    auc_pr = np.trapz(precision[sorted_idx], recall[sorted_idx])
 
     return {
+        "thresholds": thresholds,
+        "fpr": fpr,
+        "tpr": tpr,
+        "precision": precision,
+        "recall": recall,
         "KS": ks_stat,
-        "Best Threshold (Youden J)": best_thresh,
+        "Best Threshold": best_thresh,
         "ROC AUC": roc_auc,
         "AUC PR": auc_pr
     }
-def weighted_log_loss(y_true, y_prob, weights=None, eps=1e-15):
+
+
+def weighted_log_loss(y_true, y_prob, weight, eps=1e-15):
     y_true = np.array(y_true)
     y_prob = np.clip(np.array(y_prob), eps, 1 - eps)
-    weights = np.ones_like(y_true) if weights is None else np.array(weights)
-    loss = -np.average(
-        y_true * np.log(y_prob) + (1 - y_true) * np.log(1 - y_prob),
-        weights=weights
-    )
+    weight = np.array(weight)
+
+    loss = -np.sum(weight * (y_true * np.log(y_prob) + (1 - y_true) * np.log(1 - y_prob))) / np.sum(weight)
     return loss
+
+def weighted_confusion_matrix(y_true, y_score, weight, threshold):
+    y_true = np.array(y_true)
+    y_score = np.array(y_score)
+    weight = np.array(weight)
+
+    pred = (y_score >= threshold).astype(int)
+
+    TP = np.sum(weight[(pred == 1) & (y_true == 1)])
+    FP = np.sum(weight[(pred == 1) & (y_true == 0)])
+    FN = np.sum(weight[(pred == 0) & (y_true == 1)])
+    TN = np.sum(weight[(pred == 0) & (y_true == 0)])
+
+    return {
+        "TP": TP,
+        "FP": FP,
+        "FN": FN,
+        "TN": TN
+    }
+# Example Data
+y_true = [0, 1, 1, 0, 1, 0, 0]
+y_score = [0.1, 0.9, 0.8, 0.3, 0.75, 0.2, 0.6]
+weight =  [1,   1,   2,   1,   1,    1,   1]
+
+# Compute metrics
+metrics = compute_all_metrics(y_true, y_score, weight)
+logloss = weighted_log_loss(y_true, y_score, weight)
+conf_matrix = weighted_confusion_matrix(y_true, y_score, weight, metrics["Best Threshold"])
+
+# Display
+print("KS Statistic:", metrics["KS"])
+print("Best Threshold:", metrics["Best Threshold"])
+print("ROC AUC:", metrics["ROC AUC"])
+print("AUC PR:", metrics["AUC PR"])
+print("Log Loss:", logloss)
+print("Confusion Matrix at Best Threshold:", conf_matrix)
