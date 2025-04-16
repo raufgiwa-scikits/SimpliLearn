@@ -1,25 +1,11 @@
 import numpy as np
+
 def calculate_fpr_tpr_precision_recall_weighted(y_true, y_scores, weights=None):
-    """
-    Compute weighted FPR, TPR, Precision, and Recall at all unique thresholds.
-
-    Parameters:
-    - y_true (list or np.array): Binary ground truth labels (0 or 1)
-    - y_scores (list or np.array): Predicted scores/probabilities
-    - weights (list or np.array): Sample weights (same length as y_true)
-
-    Returns:
-    - thresholds: List of thresholds
-    - fpr: List of false positive rates (weighted)
-    - tpr: List of true positive rates (weighted)
-    - precision: List of precision values (weighted)
-    - recall: List of recall values (weighted)
-    """
     y_true = np.array(y_true)
     y_scores = np.array(y_scores)
     weights = np.ones_like(y_true) if weights is None else np.array(weights)
 
-    # Sort by score descending
+    # Sort by predicted scores descending
     sorted_indices = np.argsort(-y_scores)
     y_true = y_true[sorted_indices]
     y_scores = y_scores[sorted_indices]
@@ -34,6 +20,7 @@ def calculate_fpr_tpr_precision_recall_weighted(y_true, y_scores, weights=None):
     tpr_list = []
     precision_list = []
     recall_list = []
+    threshold_list = []
 
     for thresh in thresholds:
         pred = y_scores >= thresh
@@ -52,25 +39,42 @@ def calculate_fpr_tpr_precision_recall_weighted(y_true, y_scores, weights=None):
         tpr_list.append(TPR)
         precision_list.append(Precision)
         recall_list.append(Recall)
+        threshold_list.append(thresh)
 
-    return thresholds, fpr_list, tpr_list, precision_list, recall_list
+    return threshold_list, fpr_list, tpr_list, precision_list, recall_list
+def compute_weighted_metrics(y_true, y_scores, weights=None):
+    thresholds, fpr, tpr, precision, recall = calculate_fpr_tpr_precision_recall_weighted(
+        y_true, y_scores, weights)
 
-def compute_metrics_from_curve(y_true, y_scores):
-    thresholds, fpr, tpr, precision, recall = calculate_fpr_tpr_precision_recall(y_true, y_scores)
+    # KS Statistic = max(TPR - FPR)
+    ks_vals = np.abs(np.array(tpr) - np.array(fpr))
+    ks_stat = np.max(ks_vals)
+    best_thresh_idx = np.argmax(ks_vals)
+    best_thresh = thresholds[best_thresh_idx]
 
-    # KS Statistic
-    ks_stat = max(abs(np.array(tpr) - np.array(fpr)))
-
-    # ROC AUC (using Trapezoidal rule)
+    # ROC AUC using trapezoidal integration over FPR vs TPR
     roc_auc = 0.0
     for i in range(1, len(fpr)):
         roc_auc += (fpr[i] - fpr[i-1]) * (tpr[i] + tpr[i-1]) / 2.0
 
-    # AUC PR (Precision vs Recall) using trapezoidal rule
-    # Sort by recall ascending for integration
-    recall, precision = zip(*sorted(zip(recall, precision)))
+    # AUC PR (area under precision-recall curve)
+    recall_sorted, precision_sorted = zip(*sorted(zip(recall, precision)))
     auc_pr = 0.0
-    for i in range(1, len(recall)):
-        auc_pr += (recall[i] - recall[i-1]) * (precision[i] + precision[i-1]) / 2.0
+    for i in range(1, len(recall_sorted)):
+        auc_pr += (recall_sorted[i] - recall_sorted[i-1]) * (precision_sorted[i] + precision_sorted[i-1]) / 2.0
 
-    return ks_stat, roc_auc, auc_pr
+    return {
+        "KS": ks_stat,
+        "Best Threshold (Youden J)": best_thresh,
+        "ROC AUC": roc_auc,
+        "AUC PR": auc_pr
+    }
+def weighted_log_loss(y_true, y_prob, weights=None, eps=1e-15):
+    y_true = np.array(y_true)
+    y_prob = np.clip(np.array(y_prob), eps, 1 - eps)
+    weights = np.ones_like(y_true) if weights is None else np.array(weights)
+    loss = -np.average(
+        y_true * np.log(y_prob) + (1 - y_true) * np.log(1 - y_prob),
+        weights=weights
+    )
+    return loss
