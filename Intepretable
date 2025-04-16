@@ -1,5 +1,67 @@
 import numpy as np
 
+
+def calculate_metrics_fast(y_true, y_score, weight):
+    y_true = np.asarray(y_true)
+    y_score = np.asarray(y_score)
+    weight = np.asarray(weight)
+
+    # Sort descending by score
+    sort_idx = np.argsort(-y_score)
+    y_true = y_true[sort_idx]
+    y_score = y_score[sort_idx]
+    weight = weight[sort_idx]
+
+    # Cumulative sums
+    cum_weight = np.cumsum(weight)
+    cum_true = np.cumsum(weight * y_true)
+    cum_false = cum_weight - cum_true
+
+    total_pos = cum_true[-1]
+    total_neg = cum_false[-1]
+
+    TPR = cum_true / total_pos
+    FPR = cum_false / total_neg
+    Precision = cum_true / cum_weight
+    Recall = TPR
+
+    thresholds = y_score
+    KS_vals = np.abs(TPR - FPR)
+    KS_stat = np.max(KS_vals)
+    best_idx = np.argmax(KS_vals)
+    best_thresh = thresholds[best_idx]
+
+    # Remove duplicate thresholds (same scores)
+    _, unique_idx = np.unique(thresholds, return_index=True)
+    unique_idx = np.sort(unique_idx)
+
+    fpr = FPR[unique_idx]
+    tpr = TPR[unique_idx]
+    precision = Precision[unique_idx]
+    recall = Recall[unique_idx]
+    thresholds = thresholds[unique_idx]
+
+    # AUCs using trapezoidal rule
+    roc_auc = np.trapz(tpr, fpr)
+    if len(recall) > 1:
+        auc_pr = np.trapz(precision[np.argsort(recall)], np.sort(recall))
+    else:
+        auc_pr = 0.0
+
+    return {
+        "thresholds": thresholds,
+        "fpr": fpr,
+        "tpr": tpr,
+        "precision": precision,
+        "recall": recall,
+        "KS": KS_stat,
+        "Best Threshold": best_thresh,
+        "Best Index": best_idx,
+        "ROC AUC": roc_auc,
+        "AUC PR": auc_pr
+    }
+
+
 def calculate_fpr_tpr_precision_recall_weighted(y_true, y_score, weight):
     y_true = np.array(y_true)
     y_score = np.array(y_score)
