@@ -1,3 +1,151 @@
+1. AUC-ROC (Area Under the Receiver Operating Characteristic Curve)
+
+Definition:
+AUC-ROC is a performance metric for binary classification problems. The ROC curve plots the true positive rate (TPR or Sensitivity) against the false positive rate (FPR or 1 - Specificity) at various threshold settings. The AUC represents the area under this curve.
+
+How to Calculate:
+
+True Positive Rate (TPR) = TP / (TP + FN)
+
+False Positive Rate (FPR) = FP / (FP + TN)
+
+AUC: The area under the ROC curve is calculated by integrating the curve or by computing the trapezoidal area. In practice, this can be done using algorithms like the trapezoidal rule.
+
+
+Usefulness:
+
+The AUC-ROC value ranges from 0 to 1. A value closer to 1 indicates better model performance.
+
+It provides an aggregate measure of the classifier’s ability to distinguish between positive and negative classes.
+
+It is especially useful for evaluating classifiers in imbalanced datasets, as it evaluates performance across all classification thresholds.
+
+
+Weaknesses in Imbalanced Datasets:
+
+AUC-ROC can be misleading when dealing with highly imbalanced datasets, as the curve might still give high scores even when the model is only predicting the majority class (low detection of the minority class).
+
+
+
+---
+
+2. AUC-PR (Area Under the Precision-Recall Curve)
+
+Definition:
+AUC-PR is similar to AUC-ROC, but it focuses on the Precision-Recall curve. The PR curve plots Precision against Recall (or TPR) at various thresholds. AUC-PR calculates the area under this curve.
+
+How to Calculate:
+
+Precision = TP / (TP + FP)
+
+Recall (or TPR) = TP / (TP + FN)
+
+AUC-PR: The area under the PR curve is computed similarly to AUC-ROC by using numerical integration methods.
+
+
+Usefulness:
+
+AUC-PR is particularly useful in cases of imbalanced datasets, as it directly evaluates performance concerning the minority class.
+
+It gives a better indication of model performance for rare events or outliers (e.g., fraud detection or rare disease diagnosis).
+
+
+Weaknesses in Imbalanced Datasets:
+
+While it is more informative than AUC-ROC in imbalanced datasets, the AUC-PR value can still be deceptive if the majority class is disproportionately large compared to the minority class.
+
+
+
+---
+
+3. KS Statistic (Kolmogorov-Smirnov Statistic)
+
+Definition:
+KS is a statistic that measures the maximum difference between the cumulative distribution functions (CDFs) of the predicted probabilities for positive and negative classes. It evaluates the separation between the predicted distributions of the two classes.
+
+How to Calculate:
+
+Compute the cumulative distribution for both positive and negative classes.
+
+Find the maximum difference between these two cumulative distributions.
+
+
+Usefulness:
+
+KS measures the ability of the model to distinguish between the positive and negative classes. A higher KS value indicates better separation between the two classes.
+
+It is especially useful when you need a specific threshold to classify positive and negative events.
+
+
+Weaknesses in Imbalanced Datasets:
+
+While KS works well in detecting class separation, in highly imbalanced datasets, a high KS value might still be achieved even if the model fails to adequately predict the minority class.
+
+
+
+---
+
+4. Discovery Rate (True Positive Rate or Sensitivity)
+
+Definition:
+The Discovery Rate (or True Positive Rate) is the proportion of actual positive cases correctly identified by the model.
+
+How to Calculate:
+
+Discovery Rate = TP / (TP + FN)
+
+
+Usefulness:
+
+Discovery rate provides insights into the model's ability to correctly identify positive instances (e.g., fraud cases, disease diagnoses). It is crucial in domains where missing a positive instance is costly (e.g., medical diagnosis).
+
+
+Weaknesses in Imbalanced Datasets:
+
+In imbalanced datasets, the discovery rate can be high even if the model is biased toward the majority class, as it may identify a few positives but still miss many others, leading to poor overall performance.
+
+
+
+---
+
+5. False Positive Rate (FPR)
+
+Definition:
+The False Positive Rate (FPR) measures the proportion of negative cases incorrectly classified as positive.
+
+How to Calculate:
+
+FPR = FP / (FP + TN)
+
+
+Usefulness:
+
+FPR is critical in situations where false positives are costly or need to be minimized, such as in fraud detection or security systems.
+
+Lower FPR means fewer instances are incorrectly classified as positive, reducing unnecessary interventions or actions.
+
+
+Weaknesses in Imbalanced Datasets:
+
+In imbalanced datasets, FPR might remain low even if the model does a poor job of detecting the minority class, as the number of negative cases overwhelms the positive class, causing FPR to appear artificially low.
+
+
+
+---
+
+Summary of Weaknesses in Imbalanced Datasets
+
+AUC-ROC: May not be reliable in highly imbalanced datasets, as it can still produce high scores even if the model only predicts the majority class.
+
+AUC-PR: Offers better insights in imbalanced settings but can still be influenced by the majority class size.
+
+KS: Can give a misleading impression of model performance if there is minimal class separation in the minority class.
+
+Discovery Rate: This metric may show good performance for the majority class but fail to address the needs of the minority class.
+
+False Positive Rate: In highly imbalanced datasets, FPR may not effectively highlight false positives in the minority class.
+
+
 
 def make_scrambler(text1):
 
