@@ -1,1 +1,71 @@
+Figure 5.3-7: Performance on Perturbed Training Data
+Introduction & Purpose: To evaluate the robustness of models on perturbed training datasets, the MVO generated Figure 5.3-7. This figure comprises six subplots displaying performance metrics—ROC, APPV, AUC_PR, LogLoss, KS, and SpearmanR—as perturbation budgets increase.
+
+Statistical Analysis & Insights:
+
+ROC and AUC_PR consistently decline across budgets for all models, indicating reduced discriminatory ability under increasing noise. H2O shows a steeper decline than XGB and LGB, with AUC_PR dropping below 0.5 at the highest perturbation.
+
+APPV (Average Precision of Positive Values) increases for all models, likely due to more false positives being captured as budgets increase, which is misleading and indicative of reduced precision in real-world application.
+
+LogLoss increases steadily, suggesting growing miscalibration. XGB and LGB display superior resilience compared to H2O.
+
+KS follows the AUC trend, declining consistently. A decrease in KS denotes diminishing separation between fraud and non-fraud scores.
+
+SpearmanR exhibits a linear drop, highlighting reduced rank-order stability—key for model explainability and threshold tuning.
+
+Risks & Mitigation: The observed performance deterioration suggests susceptibility to adversarial or noisy input data. Models may be overfitting to clean training data. Regularization and adversarial training should be explored.
+
+Merits & Demerits:
+
+Merits: Evaluation across six metrics provides a holistic view.
+
+Demerits: Lacks stratification by feature or fraud type to isolate sources of brittleness.
+
+Figure 5.3-9: Performance on Perturbed Validation Data
+Introduction & Purpose: To further investigate model generalizability under stress, the MVO generated Figure 5.3-9. This visualization assesses how models respond to feature perturbation in the validation data, simulating real-world unpredictability.
+
+Statistical Analysis & Insights:
+
+ROC & AUC_PR continue to drop across increasing budgets. Validation confirms H2O as most fragile under perturbation, while LGB maintains the highest resilience.
+
+APPV grows for all models, echoing training results, suggesting a potential over-detection problem under perturbation.
+
+LogLoss remains relatively flat for XGB and LGB, indicating more stable calibration, while H2O's LogLoss fluctuates, revealing poor handling of uncertainty.
+
+KS and SpearmanR fall in line with AUC_PR and ROC, reaffirming degradation in classification sharpness and score monotonicity.
+
+Risks & Mitigation: This trend highlights risk of false positive surges in production, especially under spoofed or corrupted input data. To mitigate, implement score monitoring and data drift detection mechanisms.
+
+Merits & Demerits:
+
+Merits: Validation data analysis reflects real deployment scenarios.
+
+Demerits: Does not correlate performance with specific perturbed features.
+
+Figures 5.3-5 & 5.3-6: Top 8 Feature Distribution & Perturbation in Training Data
+Introduction & Purpose: To investigate which features most influence perturbation outcomes, the MVO analyzed Figure 5.3-5 (feature distribution) and Figure 5.3-6 (training perturbation plots).
+
+Statistical Analysis & Insights:
+
+Features like all_freq_last_days_15, time_recent_event_seconds, and profile_sum_avg_mth_bal exhibit sharp concentration among fraud cases, suggesting strong signal.
+
+Perturbation plots show all_freq_last_days_15 and all_freq_last_days_7 are most frequently altered, which can severely distort detection ability.
+
+Feature influence is nonlinear—some infrequent variables (e.g., time_since_cardorder_last_days_30) have outsize impact on prediction.
+
+Risks & Mitigation: Models heavily dependent on few time-series features are fragile. A regularization approach (e.g., dropout for features) or robust feature selection should be considered.
+
+Figure 5.3-8: Top 8 Feature Perturbation in Validation Data
+Introduction & Purpose: This figure was generated to validate which features remain sensitive during perturbation on unseen validation data and how often they are altered.
+
+Statistical Analysis & Insights:
+
+all_freq_last_days_15 again tops the list, confirming consistent vulnerability across datasets.
+
+As perturbation budget increases, percent of observations affected by high-influence features spikes rapidly (especially at budget = 0.2), confirming these features as high-leverage points.
+
+Observations with multiple perturbed variables increase linearly, which can mislead models if training was skewed toward clean or less noisy data.
+
+Risks & Mitigation: Over-reliance on few temporal features amplifies model fragility. Introduce data augmentation strategies and design stress tests in validation pipelines.
+
 
