@@ -1,71 +1,108 @@
-Figure 5.3-7: Performance on Perturbed Training Data
-Introduction & Purpose: To evaluate the robustness of models on perturbed training datasets, the MVO generated Figure 5.3-7. This figure comprises six subplots displaying performance metrics—ROC, APPV, AUC_PR, LogLoss, KS, and SpearmanR—as perturbation budgets increase.
+Purpose of Table 5-12
+The table presents Population Stability Index (PSI) values across various perturbation sizes (0.1 to 0.7), helping evaluate how sensitive the final model's score distribution is to changes in feature values. PSI serves as a proxy for measuring robustness — with lower values indicating higher score stability and reduced likelihood of performance drift under minor distributional shifts.
 
-Statistical Analysis & Insights:
+Technical and Statistical Analysis
+The perturbation sizes simulate small to moderate changes in the top 5 predictive features (via quantile shifts).
 
-ROC and AUC_PR consistently decline across budgets for all models, indicating reduced discriminatory ability under increasing noise. H2O shows a steeper decline than XGB and LGB, with AUC_PR dropping below 0.5 at the highest perturbation.
+Each row in the table shows PSI metrics (mean, min, 25th percentile, median/50th percentile, 75th percentile, max) for a given perturbation level.
 
-APPV (Average Precision of Positive Values) increases for all models, likely due to more false positives being captured as budgets increase, which is misleading and indicative of reduced precision in real-world application.
+Across all perturbation sizes, the minimum PSI remains 0.0000, indicating at least one feature shift caused no discernible impact on score distribution.
 
-LogLoss increases steadily, suggesting growing miscalibration. XGB and LGB display superior resilience compared to H2O.
+As perturbation increases:
 
-KS follows the AUC trend, declining consistently. A decrease in KS denotes diminishing separation between fraud and non-fraud scores.
+The mean PSI increases gradually from 0.0001 (at 0.1) to 0.0164 (at 0.7).
 
-SpearmanR exhibits a linear drop, highlighting reduced rank-order stability—key for model explainability and threshold tuning.
+The max PSI grows from 0.0003 to 0.0468, showing the model becomes increasingly sensitive to larger perturbations.
 
-Risks & Mitigation: The observed performance deterioration suggests susceptibility to adversarial or noisy input data. Models may be overfitting to clean training data. Regularization and adversarial training should be explored.
-
-Merits & Demerits:
-
-Merits: Evaluation across six metrics provides a holistic view.
-
-Demerits: Lacks stratification by feature or fraud type to isolate sources of brittleness.
-
-Figure 5.3-9: Performance on Perturbed Validation Data
-Introduction & Purpose: To further investigate model generalizability under stress, the MVO generated Figure 5.3-9. This visualization assesses how models respond to feature perturbation in the validation data, simulating real-world unpredictability.
-
-Statistical Analysis & Insights:
-
-ROC & AUC_PR continue to drop across increasing budgets. Validation confirms H2O as most fragile under perturbation, while LGB maintains the highest resilience.
-
-APPV grows for all models, echoing training results, suggesting a potential over-detection problem under perturbation.
-
-LogLoss remains relatively flat for XGB and LGB, indicating more stable calibration, while H2O's LogLoss fluctuates, revealing poor handling of uncertainty.
-
-KS and SpearmanR fall in line with AUC_PR and ROC, reaffirming degradation in classification sharpness and score monotonicity.
-
-Risks & Mitigation: This trend highlights risk of false positive surges in production, especially under spoofed or corrupted input data. To mitigate, implement score monitoring and data drift detection mechanisms.
-
-Merits & Demerits:
-
-Merits: Validation data analysis reflects real deployment scenarios.
-
-Demerits: Does not correlate performance with specific perturbed features.
-
-Figures 5.3-5 & 5.3-6: Top 8 Feature Distribution & Perturbation in Training Data
-Introduction & Purpose: To investigate which features most influence perturbation outcomes, the MVO analyzed Figure 5.3-5 (feature distribution) and Figure 5.3-6 (training perturbation plots).
-
-Statistical Analysis & Insights:
-
-Features like all_freq_last_days_15, time_recent_event_seconds, and profile_sum_avg_mth_bal exhibit sharp concentration among fraud cases, suggesting strong signal.
-
-Perturbation plots show all_freq_last_days_15 and all_freq_last_days_7 are most frequently altered, which can severely distort detection ability.
-
-Feature influence is nonlinear—some infrequent variables (e.g., time_since_cardorder_last_days_30) have outsize impact on prediction.
-
-Risks & Mitigation: Models heavily dependent on few time-series features are fragile. A regularization approach (e.g., dropout for features) or robust feature selection should be considered.
-
-Figure 5.3-8: Top 8 Feature Perturbation in Validation Data
-Introduction & Purpose: This figure was generated to validate which features remain sensitive during perturbation on unseen validation data and how often they are altered.
-
-Statistical Analysis & Insights:
-
-all_freq_last_days_15 again tops the list, confirming consistent vulnerability across datasets.
-
-As perturbation budget increases, percent of observations affected by high-influence features spikes rapidly (especially at budget = 0.2), confirming these features as high-leverage points.
-
-Observations with multiple perturbed variables increase linearly, which can mislead models if training was skewed toward clean or less noisy data.
-
-Risks & Mitigation: Over-reliance on few temporal features amplifies model fragility. Introduce data augmentation strategies and design stress tests in validation pipelines.
+The 75th percentile PSI grows from 0.0000 to 0.0243, reflecting more widespread sensitivity at higher perturbation.
 
 
+Perturbation	Mean PSI	50th % (Median)	Max PSI
+0.1	0.0001	0.0000	0.0003
+0.4	0.0045	0.0002	0.0124
+0.7	0.0164	0.0108	0.0468
+Insights and Inference
+The results show a controlled increase in PSI with increasing perturbation, indicating gradual sensitivity — a desirable sign of a well-regularized model.
+
+Up to a perturbation size of 0.3, the mean PSI remains below 0.003 — suggesting excellent robustness within moderate distributional shifts.
+
+Only at 0.7 perturbation does PSI exceed 0.01, and the maximum reaches 0.0468 — still well below typical alert thresholds (commonly PSI > 0.1 is considered significant drift).
+
+These statistics affirm the model's strong resilience to distributional drift in top features, reducing concern for performance volatility in deployment.
+
+Potential Risks and Mitigation
+Risk: For rare but extreme data shifts (like perturbation size > 0.6), score instability could marginally increase.
+
+Mitigation:
+
+Continuous monitoring using PSI on production data.
+
+Dynamic recalibration or re-training policies if PSI exceeds acceptable thresholds.
+
+Conclusion
+The perturbation-based robustness evaluation confirms that the model is well-regularized and stable under realistic input shifts.
+
+The model’s score distribution is minimally impacted by small to moderate perturbations, reinforcing its deployment readiness.
+
+Let me know if you want this converted into a report section or if you’d like to visualize this data in a chart.
+
+
+
+
+
+
+
+You said:
+
+
+ChatGPT said:
+Here is a detailed review and interpretation of the robustness metrics presented in the image, particularly focusing on Table 5-13, Table 5-14, and Figure 5.3.
+
+Purpose of Tables and Figures
+Table 5-13: Presents the benchmark PSI score (0.0125), derived from comparing March 2024 scores with those from April–May 2024, to establish a threshold for acceptable model score drift.
+
+Table 5-14: Summarizes average AUC degradation across different perturbation sizes, highlighting the impact of data perturbation on model discrimination performance.
+
+Figure 5.3: Visualizes the relationship between perturbation size, AUC, and PSI using box plots.
+
+Technical and Statistical Analysis
+Benchmark PSI Interpretation (Table 5-13):
+PSI = 0.0125 is treated as the tolerance level for normal fluctuations in real-world data.
+
+Perturbation sizes ≤ 0.4 produce PSI values below this benchmark, implying that these levels of change are acceptable and resemble natural variation in feature distribution.
+
+Model Performance under Perturbation (Table 5-14):
+
+Perturb Size	Avg AUC	AUC Degradation
+0.1	0.949	-0.16%
+0.2	0.947	-0.44%
+0.3	0.944	-0.77%
+0.4	0.940	-1.13%
+0.5	0.936	-1.54%
+0.6	0.962	+1.11%
+0.7	0.927	-2.47%
+Original	0.951	–
+Minimal drop in AUC (<1%) for perturbation sizes up to 0.3 signifies that the ranking power remains strong under mild perturbations.
+
+The spike at 0.6 might be due to noise structure aligning better with model fit, but the degradation at 0.7 (-2.47%) confirms the model's boundary of robustness.
+
+Visual Patterns (Figure 5.3):
+The AUC box plot shows a gradual decline in central tendency and tighter spread until 0.5, then sharp variance at 0.7.
+
+The PSI box plot correlates with this, remaining flat and low until 0.3–0.4, after which PSI rises noticeably — affirming the threshold conclusion drawn from Table 5-13.
+
+Insights and Implications
+Robustness Threshold: The model maintains both PSI and AUC stability up to perturbation size 0.3–0.4, which aligns with real-world data drift tolerance.
+
+Operational Stability: The model's ranking and score output are reliably consistent under normal to moderately shifted input features.
+
+Exception Handling: For perturbation sizes ≥0.5, performance drift may exceed natural variability, indicating a potential trigger for model review or retraining.
+
+Conclusion
+The combined findings of Tables 5-13, 5-14, and Figure 5.3 confirm that:
+
+The model exhibits strong robustness to minor data shifts.
+
+It meets expectations for deployment in real-world environments, where small fluctuations in input features are common.
+
+Perturbation analysis complements overfitting control techniques to certify the model’s resilience and reliability in production.
