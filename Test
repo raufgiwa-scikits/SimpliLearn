@@ -1,0 +1,33 @@
+
+
+⸻
+
+3. Results Summary from Tables
+
+Regular Numerical Features (Table 5-5)
+	•	Features like time_recent_event_seconds and dvc_max_total_dist_cust show:
+	•	Predictable score increase with +3σ shocks.
+	•	High sensitivity suggests these features influence fraud score greatly.
+
+Frequency Features (Table 5-6)
+	•	Show consistent increasing scores with higher perturbations.
+	•	High delta_pos3 values suggest strong influence on risk prediction.
+
+Flag Features (Table 5-7)
+	•	Binary indicators show expected increases when flipped to the riskier side.
+	•	callactv_flag_last_days_14 increases score by ~23.52%.
+
+Missing Value Analysis (Table 5-8, 5-9)
+	•	dig_daily_mult_country_present and time_recent_event_seconds have significant null rates.
+	•	Imputation in the risk direction increased prediction scores (up to 13.63%).
+
+⸻
+
+4. Key Insights
+	•	Smaller delta values indicate robustness; larger values indicate sensitivity and potential model instability.
+	•	Perturbation reveals feature vulnerabilities and helps identify features with disproportionate influence.
+	•	Null value impact analysis confirms the model’s dependency on complete information for accuracy.
+
+⸻
+
+Would you like a formal sensitivity analysis report written from this content, possibly for review or presentation purposes (e.g., in third person, formal technical tone, with recommendations)?
