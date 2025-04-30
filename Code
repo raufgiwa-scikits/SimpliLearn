@@ -1,0 +1,30 @@
+Sub FindAndFormatToUppercaseAptos()
+    Dim findText As String
+    Dim rng As Range
+
+    ' Ask user for the text to find
+    findText = InputBox("Enter the text to find and format:", "Find Text")
+    If findText = "" Then Exit Sub
+
+    ' Initialize the search range
+    Set rng = ActiveDocument.Content
+    With rng.Find
+        .ClearFormatting
+        .Text = findText
+        .MatchCase = False
+        .MatchWholeWord = False
+        .MatchWildcards = False
+        .Forward = True
+        .Wrap = wdFindStop
+
+        Do While .Execute
+            ' Change found text to uppercase and Aptos font
+            rng.Text = UCase(rng.Text)
+            rng.Font.Name = "Aptos"
+            ' Move past the current replacement
+            rng.Collapse Direction:=wdCollapseEnd
+        Loop
+    End With
+
+    MsgBox "All occurrences of '" & findText & "' changed to uppercase Aptos.", vbInformation
+End Sub
