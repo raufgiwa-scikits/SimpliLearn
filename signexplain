@@ -1,3 +1,63 @@
+
+import tensorflow as tf
+from tensorflow.keras import layers, Model, Input
+from tensorflow.keras.applications import EfficientNetB0
+from tensorflow.keras.applications.efficientnet import preprocess_input
+
+# ==== Shared Encoder Using EfficientNet ====
+def build_efficientnet_encoder(input_shape=(224, 224, 3)):
+    base_model = EfficientNetB0(include_top=False, input_shape=input_shape, weights='imagenet')
+    base_model.trainable = False  # Set True if you want to fine-tune
+
+    inputs = Input(shape=input_shape)
+    x = preprocess_input(inputs)
+    x = base_model(x)
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.BatchNormalization()(x)
+    outputs = layers.Dense(128, activation='relu')(x)  # Latent representation
+    return Model(inputs, outputs, name="EfficientNetEncoder")
+
+# ==== Siamese Network with Probabilistic Output ====
+def build_siamese_prob_network(input_shape=(224, 224, 3)):
+    encoder = build_efficientnet_encoder(input_shape)
+
+    input_a = Input(shape=input_shape, name='Input_A')
+    input_b = Input(shape=input_shape, name='Input_B')
+
+    vec_a = encoder(input_a)
+    vec_b = encoder(input_b)
+
+    # Combine embeddings (distance + absolute difference + element-wise product)
+    l1_distance = layers.Lambda(lambda tensors: tf.abs(tensors[0] - tensors[1]))([vec_a, vec_b])
+    dot_product = layers.Multiply()([vec_a, vec_b])
+    concat = layers.Concatenate()([l1_distance, dot_product])
+
+    x = layers.Dense(128, activation='relu')(concat)
+    x = layers.Dropout(0.3)(x)
+    x = layers.Dense(64, activation='relu')(x)
+    output = layers.Dense(1, activation='sigmoid', name='Similarity')(x)
+
+    return Model(inputs=[input_a, input_b], outputs=output, name='ProbabilisticSiameseNet')
+
+# ==== Compile the Model ====
+model = build_siamese_prob_network()
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model.summary()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Skip to content
 Chat history
 
