@@ -47,7 +47,55 @@ model.summary()
 
 
 
+import tensorflow as tf
+from tensorflow.keras import layers, Model, Input
+from tensorflow.keras.applications import EfficientNetB0
+from tensorflow.keras.applications.efficientnet import preprocess_input
 
+# ==== Shared Encoder ====
+def build_efficientnet_encoder(input_shape=(224, 224, 3)):
+    base_model = EfficientNetB0(include_top=False, input_shape=input_shape, weights='imagenet')
+    base_model.trainable = False  # You can fine-tune if needed
+
+    inputs = Input(shape=input_shape)
+    x = preprocess_input(inputs)
+    x = base_model(x)
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.BatchNormalization()(x)
+    outputs = layers.Dense(128, activation='linear')(x)  # Embedding
+    return Model(inputs, outputs, name="EfficientNetEncoder")
+
+# ==== Euclidean Distance Layer ====
+def euclidean_distance(vectors):
+    x, y = vectors
+    return tf.sqrt(tf.reduce_sum(tf.square(x - y), axis=1, keepdims=True) + 1e-6)
+
+# ==== Siamese Network ====
+def build_siamese_distance_network(input_shape=(224, 224, 3)):
+    encoder = build_efficientnet_encoder(input_shape)
+
+    input_a = Input(shape=input_shape, name='Input_A')
+    input_b = Input(shape=input_shape, name='Input_B')
+
+    vec_a = encoder(input_a)
+    vec_b = encoder(input_b)
+
+    distance = layers.Lambda(euclidean_distance, name='EuclideanDistance')([vec_a, vec_b])
+    return Model(inputs=[input_a, input_b], outputs=distance, name="SiameseDistanceNet")
+
+# ==== Contrastive Loss ====
+def contrastive_loss(y_true, y_pred, margin=1.0):
+    y_true = tf.cast(y_true, y_pred.dtype)
+    return tf.reduce_mean(
+        y_true * tf.square(y_pred) +
+        (1 - y_true) * tf.square(tf.maximum(margin - y_pred, 0))
+    )
+
+# ==== Compile ====
+model = build_siamese_distance_network()
+model.compile(optimizer='adam', loss=contrastive_loss)
+model.summary()
 
 
 
