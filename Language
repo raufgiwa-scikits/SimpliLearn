@@ -299,3 +299,22 @@ def realize_signature_np(
         out_rgb = out_rgb * paper_strength + white * (1 - paper_strength)
 
     return (out_rgb * 255.0 + 0.5).astype(np.uint8)
+
+
+
+
+
+
+# sig: 2D uint8, 0 = black ink, 255 = white background
+realistic = realize_signature_np(
+    sig,
+    pressure_strength=0.4,
+    wobble_alpha=5.0, wobble_sigma=3.0,
+    bleed_radius=1.8, bleed_gain=0.8,
+    motion_blur=5, motion_angle=12.0,
+    add_grain=0.02,
+    paper_strength=0.75,
+    warm_tone=0.05,
+    jpeg_quality=72,
+    seed=123
+)
