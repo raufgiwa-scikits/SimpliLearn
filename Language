@@ -23,29 +23,48 @@ def _gaussian_kernel1d(sigma, truncate=3.0):
 
 def _gaussian_blur(img, sigma):
     """Separable Gaussian blur for 2D/3D arrays (H×W or H×W×C)."""
+    a = img.astype(np.float32, copy=False)
     if sigma <= 0:
-        return img.astype(np.float32, copy=False)
+        return a
+
     k = _gaussian_kernel1d(sigma)
-    out = img.astype(np.float32, copy=False)
+    r = len(k) // 2
+    H, W = a.shape[:2]
 
-    # blur Y
-    pad = len(k)//2
-    tmp = _reflect_pad(out, pad, 0)
-    out = np.tensordot(k, tmp, axes=(0, 0))  # (K)·(H+2p, W[,C]) → (H, W[,C])
+    # vertical
+    pad = _reflect_pad(a, r, 0)
+    if a.ndim == 2:
+        acc = 0.0
+        for i, w in enumerate(k):
+            acc = acc + w * pad[i:i+H, :]
+        a = acc
+    else:  # H×W×C
+        acc = 0.0
+        for i, w in enumerate(k):
+            acc = acc + w * pad[i:i+H, :, :]
+        a = acc
 
-    # blur X
-    pad = len(k)//2
-    tmp = _reflect_pad(out, 0, pad)
-    out = np.tensordot(tmp, k, axes=([1], [0]))  # (H, W+2p[,C])·(K) → (H, W[,C])
-    return out
+    # horizontal
+    pad = _reflect_pad(a, 0, r)
+    if a.ndim == 2:
+        acc = 0.0
+        for i, w in enumerate(k):
+            acc = acc + w * pad[:, i:i+W]
+        a = acc
+    else:
+        acc = 0.0
+        for i, w in enumerate(k):
+            acc = acc + w * pad[:, i:i+W, :]
+        a = acc
+
+    return a
 
 def _sobel_xy(img):
-    """Sobel gradients for single-channel float image."""
+    """Sobel gradients for single-channel float image (2D)."""
     Kx = np.array([[-1,0,1],[-2,0,2],[-1,0,1]], dtype=np.float32)
     Ky = Kx.T
     pad = 1
     a = _reflect_pad(img, pad, pad)
-    # conv (naive but small)
     H, W = img.shape
     gx = np.zeros_like(img, np.float32)
     gy = np.zeros_like(img, np.float32)
@@ -153,35 +172,133 @@ def _draw_line_bresenham(canvas, x0, y0, x1, y1, val):
             err += dx; y0 += sy
 
 
-# --------------------------- main: realize signature ---------------------------
+# --------------------------- centerline-aware thickness (optional utility) ---------------------------
 
-def realize_signature_np(
-    sig_gray,
-    paper=None,
+def _chamfer_distance_to_bg(ink01: np.ndarray) -> np.ndarray:
+    """
+    Approx Euclidean distance (pixels) from each pixel to nearest background.
+    ink01: float32 in [0,1], where 1=ink, 0=paper. Returns float32 distance on all pixels.
+    """
+    H, W = ink01.shape
+    INF = 1e6
+    d = np.where(ink01 < 0.5, 0.0, INF).astype(np.float32)
+    # forward pass
+    for y in range(H):
+        ym1 = max(0, y-1)
+        for x in range(W):
+            xm1 = max(0, x-1); xp1 = min(W-1, x+1)
+            v = d[y, x]
+            v = min(v, d[y, xm1] + 1.0)
+            v = min(v, d[ym1, x] + 1.0)
+            v = min(v, d[ym1, xm1] + 1.41421356)
+            v = min(v, d[ym1, xp1] + 1.41421356)
+            d[y, x] = v
+    # backward pass
+    for y in range(H-1, -1, -1):
+        yp1 = min(H-1, y+1)
+        for x in range(W-1, -1, -1):
+            xm1 = max(0, x-1); xp1 = min(W-1, x+1)
+            v = d[y, x]
+            v = min(v, d[y, xp1] + 1.0)
+            v = min(v, d[yp1, x] + 1.0)
+            v = min(v, d[yp1, xp1] + 1.41421356)
+            v = min(v, d[yp1, xm1] + 1.41421356)
+            d[y, x] = v
+    d[d >= INF*0.5] = 0.0
+    return d
+
+
+# --------------------------- projective warp & page tilt (grayscale) ---------------------------
+
+def _solve_homography(src_pts, dst_pts):
+    A = []
+    for (x, y), (X, Y) in zip(src_pts, dst_pts):
+        A.append([x, y, 1, 0, 0, 0, -X*x, -X*y, -X])
+        A.append([0, 0, 0, x, y, 1, -Y*x, -Y*y, -Y])
+    A = np.asarray(A, dtype=np.float64)
+    _, _, Vt = np.linalg.svd(A)
+    h = Vt[-1, :]
+    H = h.reshape(3, 3)
+    return H.astype(np.float32)
+
+def _warp_projective_gray(img, corner_jitter=(0.03, 0.03), seed=None):
+    rng = np.random.RandomState(seed)
+    H, W = img.shape[:2]
+    jx, jy = corner_jitter
+    src = np.array([[0,0],[W-1,0],[W-1,H-1],[0,H-1]], np.float32)
+    dst = src.copy()
+    dst[:,0] += rng.uniform(-jx*W, jx*W, size=4)
+    dst[:,1] += rng.uniform(-jy*H, jy*H, size=4)
+    Hmat = _solve_homography(dst, src)  # output->input map
+
+    yy, xx = np.meshgrid(np.arange(H, dtype=np.float32),
+                         np.arange(W, dtype=np.float32), indexing="ij")
+    ones = np.ones_like(xx)
+    pts = np.stack([xx, yy, ones], axis=-1).reshape(-1, 3).T
+    src_flat = Hmat @ pts
+    src_flat /= (src_flat[2:3, :] + 1e-8)
+    map_x = src_flat[0, :].reshape(H, W)
+    map_y = src_flat[1, :].reshape(H, W)
+    return _bilinear_sample(img, map_y, map_x)
+
+def apply_page_tilt_shadow_gray(
+    img_gray,                # float32 in [0,1], HxW
+    tilt_axis_deg=22.5,      # illumination axis
+    shadow_strength=0.16,    # 0..~0.3
+    corner_jitter=(0.02,0.03),
+    curl_amp=0.02,
+    seed=None
+):
+    H, W = img_gray.shape[:2]
+    warped = _warp_projective_gray(img_gray, corner_jitter=corner_jitter, seed=seed)
+
+    yy, xx = np.meshgrid(np.linspace(-1,1,H, dtype=np.float32),
+                         np.linspace(-1,1,W, dtype=np.float32), indexing="ij")
+    theta = np.deg2rad(tilt_axis_deg)
+    u =  np.cos(theta)*xx + np.sin(theta)*yy
+    v = -np.sin(theta)*xx + np.cos(theta)*yy
+    curl = curl_amp * np.sin(2*np.pi * v)
+    map_x = (xx + curl * np.cos(theta))
+    map_y = (yy + curl * np.sin(theta))
+    map_x = (map_x * 0.5 + 0.5) * (W-1)
+    map_y = (map_y * 0.5 + 0.5) * (H-1)
+    curled = _bilinear_sample(warped, map_y, map_x)
+
+    illum = 1.0 - shadow_strength * (0.5 + 0.5 * np.sin(2*np.pi*u))
+    out = np.clip(curled * illum, 0.0, 1.0)
+    return out
+
+
+# --------------------------- main: realize signature (GRAYSCALE) ---------------------------
+
+def realize_signature_np_gray(
+    sig_gray,                   # 2D uint8, 0=black ink, 255=white
+    paper=None,                 # None or 2D (H×W) uint8/float
     pressure_strength=0.35,
     wobble_alpha=4.0, wobble_sigma=3.5,
     edge_roughness=0.14,
     bleed_radius=1.6, bleed_gain=0.75,
     motion_blur=5, motion_angle=10.0,
     add_grain=0.02,
-    paper_strength=0.7,
-    warm_tone=0.04,
-    jpeg_quality=72,   # uses Pillow if available; if not, skipped
-    seed=None
+    paper_strength=0.7,         # blend toward white if <1
+    warm_tone=0.04,             # kept for compatibility (ignored in gray)
+    jpeg_quality=72,            # Pillow optional; if not, skipped
+    seed=None,
+    auto_invert=True            # if image is mostly dark, invert to white bg
 ):
     """
     Make a clean synthetic signature (2D uint8, 0=black, 255=white) look handwritten on paper.
-    Returns uint8 H×W×3 (RGB).
-
-    Zero OpenCV. Uses only NumPy (+ optional Pillow for JPEG).
+    Returns uint8 H×W (grayscale).
     """
 
     if sig_gray.ndim != 2:
         raise ValueError("sig_gray must be a 2D array (grayscale).")
-    if sig_gray.dtype != np.uint8:
-        sig = sig_gray.astype(np.uint8)
-    else:
-        sig = sig_gray.copy()
+
+    sig = sig_gray.astype(np.uint8, copy=False)
+
+    # Auto-invert if mostly dark (white background expected)
+    if auto_invert and sig.mean() < 127:
+        sig = 255 - sig
 
     H, W = sig.shape
     rng = np.random.RandomState(seed)
@@ -202,13 +319,13 @@ def realize_signature_np(
     pressure_map = np.clip(pressure_map, 0.7, 1.3)
     ink = np.clip(ink * pressure_map, 0.0, 1.0)
 
-    # 3) Edge roughness: perturb along gradient
+    # 3) Edge roughness: perturb along gradient normal
     gx, gy = _sobel_xy(ink)
     mag = np.sqrt(gx*gx + gy*gy) + 1e-8
     nx, ny = gx/mag, gy/mag
     rough = _fbm_noise(H, W, octaves=3, persistence=0.6, seed=None)
     rough = (rough - 0.5) * 2.0
-    ink = np.clip(ink + edge_roughness * rough * (0.25*nx + 0.25*ny), 0.0, 1.0)
+    ink = np.clip(ink + edge_roughness * rough * 0.5 * (nx + ny), 0.0, 1.0)
 
     # 4) Elastic hand wobble
     ink = np.clip(_elastic_warp(ink, alpha=wobble_alpha, sigma=wobble_sigma, seed=seed), 0.0, 1.0)
@@ -221,7 +338,7 @@ def realize_signature_np(
     if motion_blur and motion_blur > 1:
         ink = _directional_blur(ink, ksize=int(motion_blur), angle_deg=float(motion_angle))
 
-    # 7) Paper texture (or adapt provided)
+    # 7) Paper texture (or adapt provided) — grayscale
     if paper is None:
         tex = _fbm_noise(H, W, octaves=5, persistence=0.55, seed=seed)
         tex = _gaussian_blur(tex, 1.4)
@@ -236,85 +353,162 @@ def realize_signature_np(
             _draw_line_bresenham(fibers, x0, y0, x1, y1, float(rng.uniform(0.45, 0.75)))
         fibers = _gaussian_blur(fibers, 0.8)
         paper_gray = np.clip(0.92 + 0.06*tex + 0.03*fibers, 0.0, 1.0)
-        paper_rgb = np.stack([
-            paper_gray + warm_tone*0.6,
-            paper_gray + warm_tone*0.3,
-            paper_gray
-        ], axis=-1)
-        paper_rgb = np.clip(paper_rgb, 0.0, 1.0)
     else:
-        if paper.ndim == 2:
-            p = paper.astype(np.float32)
-            p = p / (255.0 if p.dtype.kind in "ui" else 1.0)
-            paper_rgb = np.stack([p, p, p], axis=-1)
-        elif paper.ndim == 3 and paper.shape[2] == 3:
-            p = paper.astype(np.float32)
-            paper_rgb = p / (255.0 if p.dtype.kind in "ui" else 1.0)
-        else:
-            raise ValueError("paper must be H×W or H×W×3.")
-        # resize to H×W (nearest + blur to avoid ringing)
-        if paper_rgb.shape[:2] != (H, W):
-            # quick nearest resize with tiling + crop
-            ry = int(np.ceil(H / paper_rgb.shape[0])); rx = int(np.ceil(W / paper_rgb.shape[1]))
-            pr = np.tile(paper_rgb, (ry, rx, 1))[:H, :W, :]
-            paper_rgb = _gaussian_blur(pr, 0.5)
+        p = paper.astype(np.float32)
+        if p.dtype.kind in "ui":
+            p = p / 255.0
+        if p.ndim != 2:
+            raise ValueError("paper must be a 2D array (grayscale).")
+        paper_gray = p
+        # resize to H×W if needed (nearest + slight blur)
+        if paper_gray.shape != (H, W):
+            ry = int(np.ceil(H / paper_gray.shape[0])); rx = int(np.ceil(W / paper_gray.shape[1]))
+            pr = np.tile(paper_gray, (ry, rx))[:H, :W]
+            paper_gray = _gaussian_blur(pr, 0.5)
 
     # 8) Composite (ink darkens paper)
     alpha_dark = 0.88
-    T = 1.0 - alpha_dark * np.clip(ink, 0.0, 1.0)        # transmission
-    img_lin = paper_rgb * T[..., None]
+    T = 1.0 - alpha_dark * np.clip(ink, 0.0, 1.0)   # transmission
+    img_lin = paper_gray * T
 
     # halo: tiny local darkening near strokes
     halo = _gaussian_blur(ink, 1.0)
-    img_lin *= (1.0 - 0.08 * halo[..., None])
+    img_lin *= (1.0 - 0.08 * halo)
 
     # 9) Scanner grain & vignette
     if add_grain and add_grain > 0:
-        grain = rng.randn(H, W, 3).astype(np.float32) * add_grain
+        grain = np.random.RandomState(seed+999 if seed is not None else None).randn(H, W).astype(np.float32) * add_grain
         vign = _fbm_noise(H, W, octaves=3, persistence=0.6, seed=seed+1 if seed is not None else None)
         vign = _gaussian_blur(vign, 40.0)
         vign = (vign - vign.min()) / (vign.max() - vign.min() + 1e-8)
         vign = 1.0 - 0.03*(vign - 0.5)
-        img_lin = np.clip(img_lin * vign[..., None] + grain, 0.0, 1.0)
+        img_lin = np.clip(img_lin * vign + grain, 0.0, 1.0)
 
-    out_rgb = np.clip(img_lin, 0.0, 1.0)
+    out = np.clip(img_lin, 0.0, 1.0)
 
     # 10) Optional JPEG-y roundtrip (Pillow) to add compression artifacts
     if PIL_AVAILABLE and jpeg_quality and (0 < jpeg_quality <= 100):
-        arr = (out_rgb * 255.0 + 0.5).astype(np.uint8)
-        im = Image.fromarray(arr, mode="RGB")
+        arr = (out * 255.0 + 0.5).astype(np.uint8)
+        im = Image.fromarray(arr, mode="L")
         from io import BytesIO
         buf = BytesIO()
         im.save(buf, format="JPEG", quality=int(jpeg_quality), subsampling=1, optimize=False)
         buf.seek(0)
-        out_rgb = np.asarray(Image.open(buf).convert("RGB")).astype(np.float32) / 255.0
+        out = np.asarray(Image.open(buf).convert("L")).astype(np.float32) / 255.0
 
     # 11) Subtle low-pass (scanner optics)
-    out_rgb = _gaussian_blur(out_rgb, 0.35)
-    out_rgb = np.clip(out_rgb, 0.0, 1.0)
+    out = _gaussian_blur(out, 0.35)
+    out = np.clip(out, 0.0, 1.0)
 
     # 12) Paper visibility strength (blend toward white if desired)
     if 0 <= paper_strength < 1.0:
         white = 1.0
-        out_rgb = out_rgb * paper_strength + white * (1 - paper_strength)
+        out = out * paper_strength + white * (1 - paper_strength)
 
-    return (out_rgb * 255.0 + 0.5).astype(np.uint8)
-
-
+    return (out * 255.0 + 0.5).astype(np.uint8)
 
 
 
 
-# sig: 2D uint8, 0 = black ink, 255 = white background
-realistic = realize_signature_np(
-    sig,
-    pressure_strength=0.4,
-    wobble_alpha=5.0, wobble_sigma=3.0,
-    bleed_radius=1.8, bleed_gain=0.8,
+
+def _gaussian_blur(img, sigma):
+    """Separable Gaussian blur for 2D grayscale arrays (H×W)."""
+    a = img.astype(np.float32, copy=False)
+    if sigma <= 0:
+        return a
+
+    k = _gaussian_kernel1d(sigma)
+    H, W = a.shape
+    r = len(k) // 2
+
+    # vertical pass
+    pad = _reflect_pad(a, r, 0)                  # (H+2r) × W
+    acc = np.zeros((H, W), dtype=np.float32)
+    for i, w in enumerate(k):                    # i = 0..2r
+        acc += w * pad[i:i+H, :]
+
+    # horizontal pass
+    pad = _reflect_pad(acc, 0, r)                # H × (W+2r)
+    out = np.zeros((H, W), dtype=np.float32)
+    for i, w in enumerate(k):
+        out += w * pad[:, i:i+W]
+
+    return out
+def _sobel_xy(img):
+    """Sobel gradients for single-channel float image (2D)."""
+    Kx = np.array([[-1,0,1],[-2,0,2],[-1,0,1]], dtype=np.float32)
+    Ky = Kx.T
+    pad = 1
+    a = _reflect_pad(img, pad, pad)
+    H, W = img.shape
+    gx = np.zeros_like(img, np.float32)
+    gy = np.zeros_like(img, np.float32)
+    for y in range(H):
+        sl = a[y:y+3, :]
+        gx[y] = (sl[:, :-2]*Kx[:,0].reshape(3,1) + sl[:,1:-1]*Kx[:,1].reshape(3,1) + sl[:,2:]*Kx[:,2].reshape(3,1)).sum(axis=0)
+        gy[y] = (sl[:, :-2]*Ky[:,0].reshape(3,1) + sl[:,1:-1]*Ky[:,1].reshape(3,1) + sl[:,2:]*Ky[:,2].reshape(3,1)).sum(axis=0)
+    return gx, gy
+
+# sig_gray: H×W uint8, 0=black ink, 255=white background
+
+sig_gray=np.zeros([100,200])
+sig_gray[:,0:5]=255
+sig_gray[150:,:,]=255
+sig_gray+=sig_gray+(np.random.uniform(size=[100,200])*255).astype(int)
+
+out_gray = realize_signature_np_gray(
+    sig_gray,
+    paper=None,                # or a 2D paper texture (H×W)
+    pressure_strength=0.35,
+    wobble_alpha=3.5, wobble_sigma=3.0,
+    edge_roughness=0.12,
+    bleed_radius=1.6, bleed_gain=0.75,
     motion_blur=5, motion_angle=12.0,
     add_grain=0.02,
-    paper_strength=0.75,
-    warm_tone=0.05,
+    paper_strength=0.85,
     jpeg_quality=72,
     seed=123
 )
+
+# optional page tilt + shadow (expects float32 [0,1] grayscale)
+out_tilt = apply_page_tilt_shadow_gray(
+    out_gray.astype(np.float32)/255.0,
+    tilt_axis_deg=25,
+    shadow_strength=0.18,
+    corner_jitter=(0.02, 0.03),
+    curl_amp=0.02,
+    seed=456
+)
+out_tilt_u8 = (np.clip(out_tilt, 0, 1) * 255 + 0.5).astype(np.uint8)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
