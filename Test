@@ -1,33 +1,8 @@
 
+Interpretable machine learning remains a central challenge in the application of deep models to scientific and engineering data. The Generalized Additive Model with Structured Interactions Network (GAMI-Net) has emerged as a promising framework that balances transparency and predictive power. However, many scenarios produce functional data—signals, trajectories, or fields—whose information lies in their entire shape rather than isolated scalar measurements. Typical examples are scenarios where a data has short term and long term components frequently found in healthcare, finance, atmospheric data.
 
-⸻
+We introduce the Functional GAMI-Net (F-GAMI-Net-2), an interpretable deep-learning architecture that extends additive modeling of GAM-2 to function-valued predictors. Each main effect is modeled as a functional operator—implemented through basis decompositions, convolutional encoders, neural operator layers—while preserving GAMI-Net’s additive and hierarchical structure. Orthogonality, centering, and heredity constraints guarantee well-defined, disentangled contributions among scalar and functional effects. 
 
-3. Results Summary from Tables
+Pair wise effects allows for higher order accuracy which are not captured by main effects.
 
-Regular Numerical Features (Table 5-5)
-	•	Features like time_recent_event_seconds and dvc_max_total_dist_cust show:
-	•	Predictable score increase with +3σ shocks.
-	•	High sensitivity suggests these features influence fraud score greatly.
-
-Frequency Features (Table 5-6)
-	•	Show consistent increasing scores with higher perturbations.
-	•	High delta_pos3 values suggest strong influence on risk prediction.
-
-Flag Features (Table 5-7)
-	•	Binary indicators show expected increases when flipped to the riskier side.
-	•	callactv_flag_last_days_14 increases score by ~23.52%.
-
-Missing Value Analysis (Table 5-8, 5-9)
-	•	dig_daily_mult_country_present and time_recent_event_seconds have significant null rates.
-	•	Imputation in the risk direction increased prediction scores (up to 13.63%).
-
-⸻
-
-4. Key Insights
-	•	Smaller delta values indicate robustness; larger values indicate sensitivity and potential model instability.
-	•	Perturbation reveals feature vulnerabilities and helps identify features with disproportionate influence.
-	•	Null value impact analysis confirms the model’s dependency on complete information for accuracy.
-
-⸻
-
-Would you like a formal sensitivity analysis report written from this content, possibly for review or presentation purposes (e.g., in third person, formal technical tone, with recommendations)?
+When applied to synthetic and real-world datasets—including temporal, spatial, and physical signals—F-GAMI-Net captures non-linear dependencies while retaining transparent effect visualizations over time and domain space. This framework establishes a path toward physics-informed, interpretable learning for complex systems where both predictive accuracy and scientific insight are essential.
