@@ -6,3 +6,551 @@ We introduce the Functional GAMI-Net (F-GAMI-Net-2), an interpretable deep-learn
 Pair wise effects allows for higher order accuracy which are not captured by main effects.
 
 When applied to synthetic and real-world datasets—including temporal, spatial, and physical signals—F-GAMI-Net captures non-linear dependencies while retaining transparent effect visualizations over time and domain space. This framework establishes a path toward physics-informed, interpretable learning for complex systems where both predictive accuracy and scientific insight are essential.
+
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+def plot_partial_dependence_1d(
+    features: pd.DataFrame,
+    y,
+    score,
+    feature_name: str,
+    sample_weight=None,
+    n_bins: int = 20,
+    use_quantile_bins: bool = True,
+    ax=None,
+):
+    """
+    Plot a 1D (approximate) partial dependence / conditional dependence plot for a single feature.
+
+    Parameters
+    ----------
+    features : pd.DataFrame
+        Feature matrix. Must contain `feature_name` as a column.
+    y : array-like of shape (n_samples,)
+        Binary target variable (0/1).
+    score : array-like of shape (n_samples,)
+        Model scores or predicted probabilities for the positive class (1).
+    feature_name : str
+        Name of the feature column to plot.
+    sample_weight : array-like of shape (n_samples,), optional
+        Sample weights. If None, all samples are equally weighted.
+    n_bins : int, default=20
+        Number of bins for the feature.
+    use_quantile_bins : bool, default=True
+        If True, bins are based on quantiles (equal frequency).
+        If False, bins are equally spaced in feature value.
+    ax : matplotlib.axes.Axes, optional
+        Axis to plot on. If None, a new figure and axis are created.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
+    summary_df : pd.DataFrame
+        Data used for plotting with columns:
+        ['bin_center', 'avg_score', 'event_rate', 'bin_count', 'bin_weight'].
+    """
+    # Convert inputs to numpy arrays
+    x = np.asarray(features[feature_name])
+    y = np.asarray(y)
+    score = np.asarray(score)
+    
+    if sample_weight is None:
+        sample_weight = np.ones_like(y, dtype=float)
+    else:
+        sample_weight = np.asarray(sample_weight, dtype=float)
+
+    # Remove NaNs (optional; you could also keep them and treat separately)
+    mask = ~np.isnan(x) & ~np.isnan(score) & ~np.isnan(y) & ~np.isnan(sample_weight)
+    x = x[mask]
+    y = y[mask]
+    score = score[mask]
+    sample_weight = sample_weight[mask]
+
+    # Build bins
+    if use_quantile_bins:
+        quantiles = np.linspace(0.0, 1.0, n_bins + 1)
+        bin_edges = np.quantile(x, quantiles)
+        # Remove possible duplicated edges (e.g., many identical values)
+        bin_edges = np.unique(bin_edges)
+        # Adjust n_bins accordingly
+        n_bins = len(bin_edges) - 1
+    else:
+        bin_edges = np.linspace(x.min(), x.max(), n_bins + 1)
+
+    bin_centers = []
+    avg_scores = []
+    event_rates = []
+    bin_counts = []
+    bin_weights = []
+
+    for i in range(n_bins):
+        left = bin_edges[i]
+        right = bin_edges[i + 1]
+
+        # last bin right edge inclusive
+        if i < n_bins - 1:
+            bin_mask = (x >= left) & (x < right)
+        else:
+            bin_mask = (x >= left) & (x <= right)
+
+        if not np.any(bin_mask):
+            continue
+
+        x_bin = x[bin_mask]
+        y_bin = y[bin_mask]
+        score_bin = score[bin_mask]
+        w_bin = sample_weight[bin_mask]
+
+        total_w = w_bin.sum()
+        if total_w == 0:
+            continue
+
+        bin_center = np.average(x_bin, weights=w_bin)
+        avg_score = np.average(score_bin, weights=w_bin)
+        event_rate = np.average(y_bin, weights=w_bin)
+
+        bin_centers.append(bin_center)
+        avg_scores.append(avg_score)
+        event_rates.append(event_rate)
+        bin_counts.append(len(x_bin))
+        bin_weights.append(total_w)
+
+    summary_df = pd.DataFrame({
+        "bin_center": bin_centers,
+        "avg_score": avg_scores,
+        "event_rate": event_rates,
+        "bin_count": bin_counts,
+        "bin_weight": bin_weights,
+    })
+
+    # Plot
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+
+    ax.plot(summary_df["bin_center"], summary_df["avg_score"],
+            marker="o", label="Average model score")
+    ax.plot(summary_df["bin_center"], summary_df["event_rate"],
+            marker="s", linestyle="--", label="Observed event rate")
+
+    ax.set_xlabel(feature_name)
+    ax.set_ylabel("Score / Event rate")
+    ax.set_title(f"Partial / Conditional Dependence for {feature_name}")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    return fig, ax, summary_df
+
+
+# Example usage:
+# features: pd.DataFrame with a column "age"
+# y: binary np.array or Series
+# score: model predicted probabilities
+# w: optional sample weights
+
+fig, ax, df_pdp = plot_partial_dependence_1d(
+    features=features,
+    y=y,
+    score=score,
+    feature_name="age",
+    sample_weight=w,
+    n_bins=20,
+    use_quantile_bins=True
+)
+plt.show()
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+def plot_partial_dependence_2d(
+    features: pd.DataFrame,
+    y,
+    score,
+    feature_x: str,
+    feature_y: str,
+    sample_weight=None,
+    n_bins_x: int = 20,
+    n_bins_y: int = 20,
+    use_quantile_bins: bool = True,
+    ax=None,
+):
+    """
+    Plot a 2D (approximate) partial / conditional dependence heatmap for two features.
+
+    Parameters
+    ----------
+    features : pd.DataFrame
+        Feature matrix. Must contain `feature_x` and `feature_y` as columns.
+    y : array-like of shape (n_samples,)
+        Binary target variable (0/1).
+    score : array-like of shape (n_samples,)
+        Model scores or predicted probabilities for the positive class (1).
+    feature_x : str
+        Name of the feature to use on the x-axis.
+    feature_y : str
+        Name of the feature to use on the y-axis.
+    sample_weight : array-like of shape (n_samples,), optional
+        Sample weights. If None, all samples are equally weighted.
+    n_bins_x : int, default=20
+        Number of bins for feature_x.
+    n_bins_y : int, default=20
+        Number of bins for feature_y.
+    use_quantile_bins : bool, default=True
+        If True, bins are based on quantiles (equal frequency).
+        If False, bins are equally spaced in feature value.
+    ax : matplotlib.axes.Axes, optional
+        Axis to plot on. If None, a new figure and axis are created.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
+    summary_df : pd.DataFrame
+        Data used for plotting, with columns:
+        ['x_bin', 'y_bin', 'avg_score', 'event_rate', 'sum_weight'].
+        `x_bin` and `y_bin` are integer bin indices.
+    bin_edges_x : np.ndarray
+        Bin edges for feature_x (length n_bins_x + 1).
+    bin_edges_y : np.ndarray
+        Bin edges for feature_y (length n_bins_y + 1).
+    """
+    # Extract and convert to numpy
+    x = np.asarray(features[feature_x])
+    z = np.asarray(features[feature_y])
+    y = np.asarray(y)
+    score = np.asarray(score)
+
+    if sample_weight is None:
+        sample_weight = np.ones_like(y, dtype=float)
+    else:
+        sample_weight = np.asarray(sample_weight, dtype=float)
+
+    # Drop rows with missing values in any relevant column
+    mask = (
+        ~np.isnan(x)
+        & ~np.isnan(z)
+        & ~np.isnan(y)
+        & ~np.isnan(score)
+        & ~np.isnan(sample_weight)
+    )
+    x = x[mask]
+    z = z[mask]
+    y = y[mask]
+    score = score[mask]
+    sample_weight = sample_weight[mask]
+
+    # Build bin edges
+    if use_quantile_bins:
+        # X bins
+        qx = np.linspace(0.0, 1.0, n_bins_x + 1)
+        bin_edges_x = np.quantile(x, qx)
+        bin_edges_x = np.unique(bin_edges_x)
+        n_bins_x = len(bin_edges_x) - 1
+
+        # Y bins
+        qy = np.linspace(0.0, 1.0, n_bins_y + 1)
+        bin_edges_y = np.quantile(z, qy)
+        bin_edges_y = np.unique(bin_edges_y)
+        n_bins_y = len(bin_edges_y) - 1
+    else:
+        bin_edges_x = np.linspace(x.min(), x.max(), n_bins_x + 1)
+        bin_edges_y = np.linspace(z.min(), z.max(), n_bins_y + 1)
+
+    # Assign each point to a bin (x_bin, y_bin)
+    df = pd.DataFrame(
+        {
+            "x": x,
+            "z": z,
+            "y": y,
+            "score": score,
+            "w": sample_weight,
+        }
+    )
+
+    df["x_bin"] = pd.cut(
+        df["x"], bins=bin_edges_x, include_lowest=True, labels=False
+    )
+    df["y_bin"] = pd.cut(
+        df["z"], bins=bin_edges_y, include_lowest=True, labels=False
+    )
+
+    # Drop any row that ended up outside all bins (should be rare)
+    df = df.dropna(subset=["x_bin", "y_bin"])
+    df["x_bin"] = df["x_bin"].astype(int)
+    df["y_bin"] = df["y_bin"].astype(int)
+
+    # Aggregate within each 2D bin: weighted average score & event rate
+    grouped = df.groupby(["x_bin", "y_bin"]).apply(
+        lambda g: pd.Series(
+            {
+                "sum_weight": g["w"].sum(),
+                "sum_score_w": (g["score"] * g["w"]).sum(),
+                "sum_y_w": (g["y"] * g["w"]).sum(),
+            }
+        )
+    )
+
+    grouped["avg_score"] = grouped["sum_score_w"] / grouped["sum_weight"]
+    grouped["event_rate"] = grouped["sum_y_w"] / grouped["sum_weight"]
+
+    summary_df = grouped.reset_index()[["x_bin", "y_bin", "avg_score", "event_rate", "sum_weight"]]
+
+    # Set up 2D grid for heatmap
+    avg_score_grid = np.full((n_bins_y, n_bins_x), np.nan)
+
+    for _, row in summary_df.iterrows():
+        ix = int(row["x_bin"])
+        iy = int(row["y_bin"])
+        # pcolormesh expects grid indexed as [y, x]
+        avg_score_grid[iy, ix] = row["avg_score"]
+
+    # Plot heatmap of average score
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+
+    mesh = ax.pcolormesh(
+        bin_edges_x,
+        bin_edges_y,
+        avg_score_grid,
+        shading="auto",
+    )
+
+    cbar = fig.colorbar(mesh, ax=ax)
+    cbar.set_label("Average model score")
+
+    ax.set_xlabel(feature_x)
+    ax.set_ylabel(feature_y)
+    ax.set_title(f"2D Partial / Conditional Dependence\n{feature_x} vs {feature_y}")
+
+    return fig, ax, summary_df, bin_edges_x, bin_edges_y
+
+
+
+# features: DataFrame with columns "age" and "income"
+# y: binary target (0/1)
+# score: predicted probabilities for class 1
+# w: sample weights
+
+fig, ax, summary_df, bx, by = plot_partial_dependence_2d(
+    features=features,
+    y=y,
+    score=score,
+    feature_x="age",
+    feature_y="income",
+    sample_weight=w,
+    n_bins_x=15,
+    n_bins_y=15,
+    use_quantile_bins=True
+)
+plt.show()
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+def plot_partial_dependence_2d(
+    features: pd.DataFrame,
+    y,
+    score,
+    feature_x: str,
+    feature_y: str,
+    sample_weight=None,
+    n_bins_x: int = 20,
+    n_bins_y: int = 20,
+    use_quantile_bins: bool = True,
+    plot_what: str = "score",  # "score", "event_rate", or "both"
+    add_contours: bool = False,
+    ax=None,
+):
+    """
+    Plot a 2D (approximate) partial / conditional dependence heatmap for two features.
+
+    Parameters
+    ----------
+    features : pd.DataFrame
+        Feature matrix. Must contain `feature_x` and `feature_y` as columns.
+    y : array-like of shape (n_samples,)
+        Binary target variable (0/1).
+    score : array-like of shape (n_samples,)
+        Model scores or predicted probabilities for the positive class (1).
+    feature_x : str
+        Name of the feature to use on the x-axis.
+    feature_y : str
+        Name of the feature to use on the y-axis.
+    sample_weight : array-like of shape (n_samples,), optional
+        Sample weights. If None, all samples are equally weighted.
+    n_bins_x : int, default=20
+        Number of bins for feature_x.
+    n_bins_y : int, default=20
+        Number of bins for feature_y.
+    use_quantile_bins : bool, default=True
+        If True, bins are based on quantiles (equal frequency).
+        If False, bins are equally spaced in feature value.
+    plot_what : {"score", "event_rate", "both"}, default="score"
+        What to visualize in the heatmap. If "both", score is plotted
+        and event_rate is returned in summary_df.
+    add_contours : bool, default=False
+        If True, overlay contour lines on top of the heatmap.
+    ax : matplotlib.axes.Axes, optional
+        Axis to plot on. If None, a new figure and axis are created.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
+    summary_df : pd.DataFrame
+        Data used for plotting, with columns:
+        ['x_bin', 'y_bin', 'avg_score', 'event_rate', 'sum_weight'].
+    bin_edges_x : np.ndarray
+        Bin edges for feature_x (length n_bins_x + 1).
+    bin_edges_y : np.ndarray
+        Bin edges for feature_y (length n_bins_y + 1).
+    """
+    plot_what = plot_what.lower()
+    if plot_what not in {"score", "event_rate", "both"}:
+        raise ValueError("plot_what must be 'score', 'event_rate', or 'both'.")
+
+    # Extract and convert to numpy
+    x = np.asarray(features[feature_x])
+    z = np.asarray(features[feature_y])
+    y = np.asarray(y)
+    score = np.asarray(score)
+
+    if sample_weight is None:
+        sample_weight = np.ones_like(y, dtype=float)
+    else:
+        sample_weight = np.asarray(sample_weight, dtype=float)
+
+    # Drop rows with missing values in any relevant column
+    mask = (
+        ~np.isnan(x)
+        & ~np.isnan(z)
+        & ~np.isnan(y)
+        & ~np.isnan(score)
+        & ~np.isnan(sample_weight)
+    )
+    x = x[mask]
+    z = z[mask]
+    y = y[mask]
+    score = score[mask]
+    sample_weight = sample_weight[mask]
+
+    # Build bin edges
+    if use_quantile_bins:
+        # X bins
+        qx = np.linspace(0.0, 1.0, n_bins_x + 1)
+        bin_edges_x = np.quantile(x, qx)
+        bin_edges_x = np.unique(bin_edges_x)
+        n_bins_x = len(bin_edges_x) - 1
+
+        # Y bins
+        qy = np.linspace(0.0, 1.0, n_bins_y + 1)
+        bin_edges_y = np.quantile(z, qy)
+        bin_edges_y = np.unique(bin_edges_y)
+        n_bins_y = len(bin_edges_y) - 1
+    else:
+        bin_edges_x = np.linspace(x.min(), x.max(), n_bins_x + 1)
+        bin_edges_y = np.linspace(z.min(), z.max(), n_bins_y + 1)
+
+    # Build DataFrame
+    df = pd.DataFrame(
+        {
+            "x": x,
+            "z": z,
+            "y": y,
+            "score": score,
+            "w": sample_weight,
+        }
+    )
+
+    df["x_bin"] = pd.cut(
+        df["x"], bins=bin_edges_x, include_lowest=True, labels=False
+    )
+    df["y_bin"] = pd.cut(
+        df["z"], bins=bin_edges_y, include_lowest=True, labels=False
+    )
+
+    # Drop any row that ended up outside all bins (should be rare)
+    df = df.dropna(subset=["x_bin", "y_bin"])
+    df["x_bin"] = df["x_bin"].astype(int)
+    df["y_bin"] = df["y_bin"].astype(int)
+
+    # Aggregate within each 2D bin
+    grouped = df.groupby(["x_bin", "y_bin"]).apply(
+        lambda g: pd.Series(
+            {
+                "sum_weight": g["w"].sum(),
+                "sum_score_w": (g["score"] * g["w"]).sum(),
+                "sum_y_w": (g["y"] * g["w"]).sum(),
+            }
+        )
+    )
+
+    grouped["avg_score"] = grouped["sum_score_w"] / grouped["sum_weight"]
+    grouped["event_rate"] = grouped["sum_y_w"] / grouped["sum_weight"]
+
+    summary_df = grouped.reset_index()[["x_bin", "y_bin", "avg_score", "event_rate", "sum_weight"]]
+
+    # Prepare grid for chosen metric
+    avg_score_grid = np.full((n_bins_y, n_bins_x), np.nan)
+    event_rate_grid = np.full((n_bins_y, n_bins_x), np.nan)
+
+    for _, row in summary_df.iterrows():
+        ix = int(row["x_bin"])
+        iy = int(row["y_bin"])
+        avg_score_grid[iy, ix] = row["avg_score"]
+        event_rate_grid[iy, ix] = row["event_rate"]
+
+    if plot_what in {"score", "both"}:
+        grid_to_plot = avg_score_grid
+        label = "Average model score"
+    else:
+        grid_to_plot = event_rate_grid
+        label = "Observed event rate"
+
+    # Plot
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+
+    mesh = ax.pcolormesh(
+        bin_edges_x,
+        bin_edges_y,
+        grid_to_plot,
+        shading="auto",
+    )
+    cbar = fig.colorbar(mesh, ax=ax)
+    cbar.set_label(label)
+
+    if add_contours:
+        # Contours over the same metric
+        Xc, Yc = np.meshgrid(
+            0.5 * (bin_edges_x[:-1] + bin_edges_x[1:]),
+            0.5 * (bin_edges_y[:-1] + bin_edges_y[1:]),
+        )
+        # levels=None -> uses some automatic levels
+        ax.contour(Xc, Yc, grid_to_plot, levels=8, linewidths=0.8)
+
+    ax.set_xlabel(feature_x)
+    ax.set_ylabel(feature_y)
+    ax.set_title(
+        f"2D Partial / Conditional Dependence\n"
+        f"{feature_x} vs {feature_y} ({label})"
+    )
+
+    return fig, ax, summary_df, bin_edges_x, bin_edges_y
+
