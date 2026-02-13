@@ -1,0 +1,101 @@
+import numpy as np
+import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
+
+class TargetEncoderWOE(BaseEstimator, TransformerMixin):
+    """
+    Sklearn-compatible target encoder producing:
+        - woe
+        - odds
+        - rank_woe
+        - rank_odds
+    """
+
+    def __init__(self, columns=None, encoding='woe', smoothing=1.0, handle_unknown='global'):
+        """
+        encoding: ['woe','odds','rank_woe','rank_odds']
+        smoothing: Laplace smoothing parameter
+        handle_unknown: 'global' or 'nan'
+        """
+        self.columns = columns
+        self.encoding = encoding
+        self.smoothing = smoothing
+        self.handle_unknown = handle_unknown
+
+    # -----------------------
+    # FIT
+    # -----------------------
+    def fit(self, X, y):
+
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        y = pd.Series(y)
+
+        self.mapping_ = {}
+        self.global_pos_ = y.sum()
+        self.global_neg_ = len(y) - self.global_pos_
+
+        for col in self.columns:
+            df = pd.DataFrame({col: X[col], 'target': y})
+
+            stats = df.groupby(col)['target'].agg(['sum','count'])
+            stats.rename(columns={'sum':'pos','count':'total'}, inplace=True)
+            stats['neg'] = stats['total'] - stats['pos']
+
+            # Laplace smoothing
+            stats['pos_s'] = stats['pos'] + self.smoothing
+            stats['neg_s'] = stats['neg'] + self.smoothing
+
+            # global smoothed
+            global_pos = self.global_pos_ + self.smoothing * len(stats)
+            global_neg = self.global_neg_ + self.smoothing * len(stats)
+
+            # WOE
+            stats['woe'] = np.log(
+                (stats['pos_s'] / global_pos) /
+                (stats['neg_s'] / global_neg)
+            )
+
+            # Odds
+            stats['odds'] = stats['pos_s'] / stats['neg_s']
+
+            # Ranking
+            stats['rank_woe'] = stats['woe'].rank(method='dense')
+            stats['rank_odds'] = stats['odds'].rank(method='dense')
+
+            self.mapping_[col] = stats
+
+        return self
+
+    # -----------------------
+    # TRANSFORM
+    # -----------------------
+    def transform(self, X):
+
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        X_out = X.copy()
+
+        for col in self.columns:
+
+            stats = self.mapping_[col]
+
+            X_out[col] = X_out[col].map(stats[self.encoding])
+
+            # handle unseen categories
+            if self.handle_unknown == 'global':
+
+                if self.encoding == 'woe':
+                    default = 0.0
+
+                elif self.encoding == 'odds':
+                    default = (self.global_pos_ + self.smoothing) / (self.global_neg_ + self.smoothing)
+
+                else:
+                    default = np.nan
+
+                X_out[col] = X_out[col].fillna(default)
+
+        return X_out
