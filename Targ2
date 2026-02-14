@@ -1,0 +1,128 @@
+import numpy as np
+import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
+
+
+class TargetEncoderWOEOdds(BaseEstimator, TransformerMixin):
+    """
+    Sklearn-compatible target encoder for categorical columns.
+    Outputs one of: 'woe', 'odds', 'rank_woe', 'rank_odds'
+
+    IMPORTANT: rank_woe / rank_odds assigns a UNIQUE rank per category
+    (so #unique ranks == #unique categories), even when scores tie.
+    """
+
+    def __init__(
+        self,
+        columns=None,
+        encoding="woe",          # 'woe' | 'odds' | 'rank_woe' | 'rank_odds'
+        smoothing=1.0,           # Laplace smoothing alpha
+        handle_unknown="global", # 'global' | 'nan'
+        dtype=np.float64,
+    ):
+        self.columns = columns
+        self.encoding = encoding
+        self.smoothing = float(smoothing)
+        self.handle_unknown = handle_unknown
+        self.dtype = dtype
+
+    def fit(self, X, y):
+        X = self._to_df(X)
+        y = pd.Series(y)
+
+        if self.columns is None:
+            self.columns_ = list(X.columns)
+        else:
+            self.columns_ = list(self.columns)
+
+        # global counts
+        self._global_pos = float(y.sum())
+        self._global_neg = float(len(y) - y.sum())
+
+        self.mapping_ = {}
+
+        for col in self.columns_:
+            df = pd.DataFrame({col: X[col], "_y": y})
+
+            # category stats
+            g = df.groupby(col, dropna=False)["_y"].agg(["sum", "count"]).rename(
+                columns={"sum": "pos", "count": "total"}
+            )
+            g["neg"] = g["total"] - g["pos"]
+
+            # Laplace smoothing
+            a = self.smoothing
+            g["pos_s"] = g["pos"] + a
+            g["neg_s"] = g["neg"] + a
+
+            # Use totals compatible with per-category smoothing
+            # (adding a per-category pseudo-count to global totals)
+            k = float(len(g))
+            global_pos_s = self._global_pos + a * k
+            global_neg_s = self._global_neg + a * k
+
+            # WOE and Odds
+            g["woe"] = np.log((g["pos_s"] / global_pos_s) / (g["neg_s"] / global_neg_s))
+            g["odds"] = g["pos_s"] / g["neg_s"]
+
+            # UNIQUE ranks: 1..K with deterministic tie-break on category label
+            # So #unique ranks == #unique categories always.
+            g["rank_woe"] = self._unique_rank(g["woe"], g.index)
+            g["rank_odds"] = self._unique_rank(g["odds"], g.index)
+
+            self.mapping_[col] = g[[ "woe", "odds", "rank_woe", "rank_odds" ]]
+
+        return self
+
+    def transform(self, X):
+        X = self._to_df(X)
+
+        X_out = X.copy()
+        for col in self.columns_:
+            m = self.mapping_[col]
+            X_out[col] = X_out[col].map(m[self.encoding])
+
+            # handle unseen categories
+            if self.handle_unknown == "global":
+                X_out[col] = X_out[col].fillna(self._default_value(self.encoding))
+            elif self.handle_unknown == "nan":
+                pass
+            else:
+                raise ValueError("handle_unknown must be 'global' or 'nan'")
+
+            X_out[col] = X_out[col].astype(self.dtype)
+
+        return X_out
+
+    # ---------- helpers ----------
+
+    @staticmethod
+    def _to_df(X):
+        if isinstance(X, pd.DataFrame):
+            return X
+        return pd.DataFrame(X)
+
+    def _default_value(self, enc):
+        if enc == "woe":
+            return 0.0  # neutral WOE
+        if enc == "odds":
+            a = self.smoothing
+            return (self._global_pos + a) / (self._global_neg + a)
+        # For ranks, a global default is ambiguous; keep center-ish if you want:
+        return np.nan
+
+    @staticmethod
+    def _unique_rank(score_series: pd.Series, categories_index: pd.Index) -> pd.Series:
+        """
+        Create a unique rank for each category:
+        - sort by score ascending
+        - tie-break by category (stringified) ascending
+        - assign ranks 1..K
+        """
+        order = (
+            pd.DataFrame({"score": score_series.values, "cat": categories_index})
+            .assign(cat_str=lambda d: d["cat"].astype(str))
+            .sort_values(["score", "cat_str"], kind="mergesort")  # stable sort
+        )
+        ranks = pd.Series(np.arange(1, len(order) + 1, dtype=np.int64), index=order["cat"])
+        return categories_index.to_series().map(ranks)
