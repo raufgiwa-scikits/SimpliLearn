@@ -1,0 +1,276 @@
+import numpy as np
+import freetype
+from PIL import Image, ImageDraw, ImageFilter
+
+
+class TextSignatureSynthesizer:
+    """
+    Text -> trajectory (x(t), y(t)) using TrueType/OpenType glyph outlines
+    -> optional motor-ish perturbations
+    -> raster signature image.
+
+    Requires:
+        pip install freetype-py numpy pillow
+    """
+
+    def __init__(
+        self,
+        font_path: str,
+        font_size: int = 128,
+        samples_per_curve: int = 25,
+        img_size: int = 256,
+        pad_frac: float = 0.10,
+        blur_radius: float = 1.0,
+        seed: int | None = None,
+    ):
+        self.font_path = font_path
+        self.font_size = int(font_size)
+        self.samples_per_curve = int(samples_per_curve)
+        self.img_size = int(img_size)
+        self.pad_frac = float(pad_frac)
+        self.blur_radius = float(blur_radius)
+        self.rng = np.random.default_rng(seed)
+
+        self.face = freetype.Face(self.font_path)
+        self.face.set_char_size(self.font_size * 64)
+
+    # ---------- Bezier helpers ----------
+    @staticmethod
+    def _line(p0, p1, n=10):
+        t = np.linspace(0, 1, int(n))
+        return (1 - t)[:, None] * p0 + t[:, None] * p1
+
+    @staticmethod
+    def _quad_bezier(p0, p1, p2, n=30):
+        t = np.linspace(0, 1, int(n))
+        return ((1 - t) ** 2)[:, None] * p0 + (2 * (1 - t) * t)[:, None] * p1 + (t**2)[:, None] * p2
+
+    # ---------- Core: text -> trajectory ----------
+    def text_to_trajectory(self, text: str) -> np.ndarray:
+        """
+        Returns:
+            traj: (N,2) float32 points in [0,1] after normalization.
+        """
+        if not text:
+            return np.zeros((0, 2), dtype=np.float32)
+
+        all_strokes = []
+        pen_x = 0.0
+
+        for ch in text:
+            # Load glyph
+            self.face.load_char(ch)
+            outline = self.face.glyph.outline
+
+            if outline.n_points == 0:
+                pen_x += self.face.glyph.advance.x / 64.0
+                continue
+
+            pts = np.array(outline.points, dtype=np.float32)
+            pts[:, 0] += pen_x  # shift by running pen position
+
+            tags = np.array(outline.tags, dtype=np.uint8)
+            contours = outline.contours
+
+            start = 0
+            for end in contours:
+                contour_pts = pts[start : end + 1]
+                contour_tags = tags[start : end + 1]
+                start = end + 1
+
+                # Close contour
+                contour_pts = np.vstack([contour_pts, contour_pts[0]])
+                contour_tags = np.append(contour_tags, contour_tags[0])
+
+                segments = []
+                i = 0
+                while i < len(contour_pts) - 1:
+                    p0 = contour_pts[i]
+                    p1 = contour_pts[i + 1]
+                    on0 = bool(contour_tags[i] & 1)
+                    on1 = bool(contour_tags[i + 1] & 1)
+
+                    if on0 and on1:
+                        seg = self._line(p0, p1, n=max(5, self.samples_per_curve // 3))
+                        segments.append(seg)
+                        i += 1
+                    elif on0 and (not on1):
+                        # quadratic: p0 (on), p1 (off), p2 (next)
+                        if i + 2 < len(contour_pts):
+                            p2 = contour_pts[i + 2]
+                            seg = self._quad_bezier(p0, p1, p2, n=self.samples_per_curve)
+                            segments.append(seg)
+                            i += 2
+                        else:
+                            seg = self._line(p0, p1, n=max(5, self.samples_per_curve // 3))
+                            segments.append(seg)
+                            i += 1
+                    else:
+                        # fallback
+                        seg = self._line(p0, p1, n=max(5, self.samples_per_curve // 3))
+                        segments.append(seg)
+                        i += 1
+
+                if segments:
+                    stroke = np.vstack(segments)
+                    all_strokes.append(stroke)
+
+            # Advance pen to next glyph
+            pen_x += self.face.glyph.advance.x / 64.0
+
+        if not all_strokes:
+            return np.zeros((0, 2), dtype=np.float32)
+
+        traj = np.vstack(all_strokes).astype(np.float32)
+
+        # Normalize to [0,1] box
+        traj -= traj.min(axis=0)
+        span = traj.max(axis=0)
+        traj[:, 0] /= (span[0] + 1e-6)
+        traj[:, 1] /= (span[1] + 1e-6)
+
+        return traj
+
+    # ---------- Optional: make it less "typed" ----------
+    def apply_handwriting_style(
+        self,
+        traj: np.ndarray,
+        *,
+        slant_deg: float | None = None,
+        baseline_drift: float = 0.03,
+        jitter: float = 0.004,
+        x_stretch: float = 1.0,
+        y_stretch: float = 1.0,
+    ) -> np.ndarray:
+        """
+        Applies simple geometric & noise transforms to feel more signature-like.
+        All operations keep output roughly in [0,1] by re-normalizing.
+        """
+        if traj.size == 0:
+            return traj
+
+        xy = traj.astype(np.float32).copy()
+
+        # Stretch
+        xy[:, 0] *= float(x_stretch)
+        xy[:, 1] *= float(y_stretch)
+
+        # Baseline drift (slow vertical drift across x)
+        drift = float(baseline_drift) * (xy[:, 0] - xy[:, 0].min())
+        xy[:, 1] += drift
+
+        # Slant (shear)
+        if slant_deg is None:
+            slant_deg = float(self.rng.uniform(-18, 18))
+        shear = np.tan(np.deg2rad(float(slant_deg)))
+        xy[:, 0] = xy[:, 0] + shear * (xy[:, 1] - 0.5)
+
+        # Micro jitter
+        if jitter > 0:
+            xy += self.rng.normal(0.0, float(jitter), size=xy.shape).astype(np.float32)
+
+        # Re-normalize back to [0,1]
+        xy -= xy.min(axis=0)
+        span = xy.max(axis=0)
+        xy[:, 0] /= (span[0] + 1e-6)
+        xy[:, 1] /= (span[1] + 1e-6)
+
+        return xy
+
+    # ---------- Render trajectory to image ----------
+    def trajectory_to_image(
+        self,
+        traj: np.ndarray,
+        *,
+        thickness_min: float = 1.5,
+        thickness_max: float = 4.5,
+        invert_y: bool = True,
+    ) -> Image.Image:
+        """
+        Rasterize trajectory with simple speed->thickness rule.
+        """
+        img = Image.new("L", (self.img_size, self.img_size), 255)
+        draw = ImageDraw.Draw(img)
+
+        if traj.size == 0:
+            return img
+
+        xy = traj.copy()
+
+        # Map [0,1] -> pixel coords with padding
+        pad = int(self.img_size * self.pad_frac)
+        w = self.img_size - 2 * pad
+        h = self.img_size - 2 * pad
+
+        x = xy[:, 0] * w + pad
+        y = (1.0 - xy[:, 1]) * h + pad if invert_y else xy[:, 1] * h + pad
+        pts = np.stack([x, y], axis=1)
+
+        # Speed estimate (distance between successive points)
+        d = np.sqrt(((pts[1:] - pts[:-1]) ** 2).sum(axis=1))
+        if len(d) == 0:
+            d = np.array([0.0], dtype=np.float32)
+        d = np.concatenate([[d[0]], d]).astype(np.float32)
+
+        # Normalize speed and map to thickness: slower -> thicker
+        v = (d - d.min()) / (d.max() - d.min() + 1e-6)
+        thickness = thickness_max - (thickness_max - thickness_min) * v
+
+        for (px, py), r in zip(pts, thickness):
+            rr = max(1, int(round(float(r))))
+            draw.ellipse((px - rr, py - rr, px + rr, py + rr), fill=0)
+
+        if self.blur_radius and self.blur_radius > 0:
+            img = img.filter(ImageFilter.GaussianBlur(radius=self.blur_radius))
+
+        return img
+
+    # ---------- One-call API ----------
+    def synthesize(
+        self,
+        text: str,
+        *,
+        stylize: bool = True,
+        style_kwargs: dict | None = None,
+        render_kwargs: dict | None = None,
+        return_trajectory: bool = True,
+    ):
+        """
+        Returns:
+            img, traj  (if return_trajectory True)
+            else img
+        """
+        traj = self.text_to_trajectory(text)
+
+        if stylize:
+            style_kwargs = style_kwargs or {}
+            traj = self.apply_handwriting_style(traj, **style_kwargs)
+
+        render_kwargs = render_kwargs or {}
+        img = self.trajectory_to_image(traj, **render_kwargs)
+
+        return (img, traj) if return_trajectory else img
+
+
+# -----------------------
+# Example usage
+# -----------------------
+if __name__ == "__main__":
+    synth = TextSignatureSynthesizer(
+        font_path="YOUR_FONT.ttf",  # <-- point this to a .ttf or .otf file
+        font_size=140,
+        samples_per_curve=30,
+        img_size=256,
+        seed=7,
+    )
+
+    img, traj = synth.synthesize(
+        "Rauf Giwa",
+        stylize=True,
+        style_kwargs=dict(slant_deg=None, baseline_drift=0.04, jitter=0.005, x_stretch=1.05, y_stretch=1.0),
+        render_kwargs=dict(thickness_min=1.3, thickness_max=5.0),
+        return_trajectory=True,
+    )
+
+    print("Trajectory shape:", traj.shape, "range:", traj.min(axis=0), traj.max(axis=0))
+    img.save("synthetic_signature.png")
